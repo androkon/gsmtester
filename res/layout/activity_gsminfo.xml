@@ -21,9 +21,12 @@
              android:layout_width="fill_parent" 
              android:layout_height="wrap_content" 
              android:orientation="horizontal">                
-                 <TextView style="@style/labelStyleLeft" 
-                     android:layout_weight="0.5" 
-                     android:text="@string/signal_Level" />
+
+                 <TextView
+                     style="@style/labelStyleLeft"
+                     android:layout_weight="0.5"
+                     android:text="@string/signal_level" />
+
                  <LinearLayout 
                      android:layout_width="fill_parent" 
                      android:layout_height="wrap_content" 
@@ -37,9 +40,17 @@
                              style="@style/textSmallStyle"/>
                  </LinearLayout>
         </LinearLayout>
-        <TextView 
-            android:id="@+id/device_info" 
-            style="@style/labelStyleLeft"/>
-	</LinearLayout>
-                
+         <LinearLayout 
+             android:layout_width="fill_parent" 
+             android:layout_height="wrap_content" 
+             android:orientation="horizontal">                
+	         <TextView 
+	            android:id="@+id/device_info" 
+	            style="@style/labelStyleLeft"/>
+	        <TextView 
+	            android:id="@+id/gps_info" 
+	            style="@style/labelStyleLeft"/>
+        	</LinearLayout>
+       	</LinearLayout>
+         
 </ScrollView>
