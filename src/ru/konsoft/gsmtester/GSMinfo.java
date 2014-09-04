@@ -7,6 +7,8 @@ import java.util.TimerTask;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.telephony.PhoneStateListener;
 import android.telephony.SignalStrength;
 import android.telephony.TelephonyManager;
@@ -42,13 +44,11 @@ public class GSMinfo extends Activity {
 	@Override
 	protected void onPause() {
 		super.onPause();
-		stopListening();
 	}
 
 	@Override
 	protected void onResume() {
 		super.onResume();
-		startSignalLevelListener();
 	}
 	
 	@Override
@@ -62,10 +62,12 @@ public class GSMinfo extends Activity {
 	}
 	
 	private void setSignalLevel(int id, int infoid, int level) {
+		if(level == 99)
+			level = 0;
 		int progress = (int) ((((float) level) / 31.0) * 100);
 		String signalLevelString = getSignalLevelString(progress);
 		((ProgressBar) findViewById(id)).setProgress(progress);
-		((TextView) findViewById(infoid)).setText(signalLevelString + " (" + level + ")");
+		setTextViewText(infoid, signalLevelString + " (" + level + ")");
 		lastSignalLevel = level;
 	}
 	
@@ -83,11 +85,20 @@ public class GSMinfo extends Activity {
 	}
 	
 	private void stopListening() {
+		
 		TelephonyManager tm = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
 		tm.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE);
 		
 		timer.cancel();
 	}
+	
+	private Handler timeHandler = new Handler() {
+		@Override
+		public void handleMessage(Message msg) {
+			levels.put(System.currentTimeMillis(), lastSignalLevel);
+			super.handleMessage(msg);
+		}
+	};	
 	
 	private void startSignalLevelListener() {
 		TelephonyManager tm = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
@@ -96,13 +107,12 @@ public class GSMinfo extends Activity {
 		
 		timer = new Timer();
 		long delay = 1000, interval = 1000;
-		timer.schedule(new CollectTask(), delay, interval);
-	}
-	
-	class CollectTask extends TimerTask {
-		public void run() {
-			levels.put(System.currentTimeMillis(), lastSignalLevel);
-		}
+		timer.schedule(new TimerTask() {
+			@Override
+			public void run() {
+				timeHandler.obtainMessage().sendToTarget();
+			}
+		}, delay, interval);
 	}
 	
 	private void displayTelephonyInfo() {
