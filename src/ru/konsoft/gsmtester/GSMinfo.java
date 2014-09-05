@@ -2,6 +2,7 @@ package ru.konsoft.gsmtester;
 
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.List;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -11,6 +12,9 @@ import android.os.Message;
 import android.telephony.PhoneStateListener;
 import android.telephony.SignalStrength;
 import android.telephony.TelephonyManager;
+import android.telephony.CellInfo;
+import android.telephony.gsm.GsmCellLocation;
+import android.telephony.NeighboringCellInfo;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -20,9 +24,37 @@ import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+//import android.telephony.*;
 
 
 public class GSMinfo extends Activity {
+	
+	public class Info {
+		
+		public short level;
+		public double lat;
+		public double lon;
+		public short nettype;
+		public String operator;
+		public String tower;
+		public long time;
+
+		@Override
+		public boolean equals(Info i)
+		{
+			if(
+				this.lat == i.lat &&
+				this.level == i.level &&
+				this.lon == i.lon &&
+				this.nettype == i.nettype &&
+				this.operator.equalsIgnoreCase(i.operator) &&
+				this.tower.equalsIgnoreCase(i.tower))
+				return true;
+			else
+				return false;
+		}
+
+	}
 
 	private TelephonyManager tm;
 	private static final int EXCELLENT_LEVEL = 75;
@@ -72,23 +104,32 @@ public class GSMinfo extends Activity {
 		((TextView) findViewById(id)).setText(text);
 	}
 	
-	private void setSignalLevel(int id, int infoid, int level) {
+	private void setSignalLevel(int level) {
 		if(level == 99)
 			level = 0;
 		int progress = (int) ((((float) level) / 31.0) * 100);
-		String signalLevelString = getSignalLevelString(progress);
-		((ProgressBar) findViewById(id)).setProgress(progress);
-		setTextViewText(infoid, signalLevelString + " (" + level + ")");
-		lastSignalLevel = level;
-
+		lastSignalLevel = progress;
+	}
+	
+	private void displayInfo(){
+		String signalLevelString = getSignalLevelString(lastSignalLevel);
+		((ProgressBar) findViewById(R.id.signalLevel)).setProgress(lastSignalLevel);
+		setTextViewText(R.id.signalLevelInfo, signalLevelString + " (" + lastSignalLevel + ")");
+		
 		try{
 			String simoperator = tm.getSimOperatorName();
 			String networktype = getNetworkTypeString(tm.getNetworkType());
-			String phonetype = getPhoneTypeString(tm.getPhoneType());
+			List<NeighboringCellInfo> ci = tm.getNeighboringCellInfo();
+			String s=" cnt="+ci.size();
+			GsmCellLocation cl = (GsmCellLocation) tm.getCellLocation();
+			s="cl "+cl+" cid="+cl.getCid()+" lac="+cl.getLac()+" psc="+cl.getPsc()+"\n"+s;
+			for(NeighboringCellInfo c: ci){
+			//NeighboringCellInfo c = cl.get(0);
+				s += " cid="+c.getCid() + " lac="+c.getLac() + " rssi="+c.getRssi()+"\n";
+			}
 			String deviceinfo = "";
 			deviceinfo += ("SIM Operator: " + simoperator + "\n");
-			deviceinfo += ("Network Type: " + networktype + "\n");
-			deviceinfo += ("Phone Type: " + phonetype + "\n");
+			deviceinfo += ("Network Type: " + networktype + "\n")+s;
 			setTextViewText(R.id.device_info, deviceinfo);
         }catch(Exception e){
         	setTextViewText(R.id.device_info, "Some errors");
@@ -135,6 +176,7 @@ public class GSMinfo extends Activity {
 	private final Handler timeHandler = new Handler() {
 		@Override
 		public void handleMessage(Message msg) {
+			displayInfo();
 			//Data d = new  Data(lastSignalLevel);
 //			if(lastLocation == null)
 //				Log.e(getPackageName(), "last lat: null");
@@ -149,7 +191,7 @@ public class GSMinfo extends Activity {
 		tm = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
 		int events = PhoneStateListener.LISTEN_SIGNAL_STRENGTHS;
 		tm.listen(phoneStateListener, events);
-		lastSignalLevel = 0;
+		setSignalLevel(99);
 		
 		// get GPS coordinates
 		lm = (LocationManager) getSystemService(LOCATION_SERVICE);
@@ -160,7 +202,7 @@ public class GSMinfo extends Activity {
 		//Log.e(getPackageName(), "prov: " + provider);
 		lastLocation = null;
 		//Log.e(getPackageName(), "lat: " + Location.convert(lastLocation.getLatitude(), Location.FORMAT_SECONDS));
-		// location updates: at least 1 meter and 1 secs change
+		// location updates: at least 1 sec and 1 meter change
 		lm.requestLocationUpdates(provider, 1000, 1, gpsLocationListener);
 
 		// create collection data timer
@@ -180,7 +222,7 @@ public class GSMinfo extends Activity {
 		@Override
 		public void onSignalStrengthsChanged(SignalStrength signalStrength) {
 			
-			setSignalLevel(R.id.signalLevel, R.id.signalLevelInfo, signalStrength.getGsmSignalStrength());
+			setSignalLevel(signalStrength.getGsmSignalStrength());
 			//Log.e(getPackageName(), "gsm: " + signalStrength.getGsmSignalStrength());
 			
 			super.onSignalStrengthsChanged(signalStrength);
@@ -210,16 +252,6 @@ public class GSMinfo extends Activity {
 		}
 	}
 
-	private String getPhoneTypeString(int val){
-		switch(val){
-			case TelephonyManager.PHONE_TYPE_CDMA: return "CDMA";
-			case TelephonyManager.PHONE_TYPE_GSM: return "GSM";
-			case TelephonyManager.PHONE_TYPE_NONE: return "No phone radio.";
-			case TelephonyManager.PHONE_TYPE_SIP: return "Phone is via SIP.";
-			default: return "Unknown PhoneType: " + val;
-		}
-	}
-
 	private final LocationListener gpsLocationListener = new LocationListener() {
 		
 		@Override
@@ -235,8 +267,8 @@ public class GSMinfo extends Activity {
 
 		@Override
 		public void onProviderDisabled(String provider) {
-			Log.e(getPackageName(), "gps: onProviderDisabled");
-			lastLocation = null;
+			//Log.e(getPackageName(), "gps: onProviderDisabled");
+			//lastLocation = null;
 		}
 		
 		@Override
