@@ -1,20 +1,20 @@
 package ru.konsoft.gsmtester;
 
-public class Info {
+public class Info extends Object{
 
-	public long time = 0;
+	public long time;
 
-	public double lat = 0;
-	public double lon = 0;
+	public double lat;
+	public double lon;
 	
-	public float accuracy = 0;
+	public float accuracy;
 
-	public int level = 0;
-	public int nettype = 0;
+	public int level;
+	public int nettype;
 	public String operator = "";
-	public int opercode = 0;
-	public int lac = 0;
-	public int cid = 0;
+	public int opercode;
+	public int lac;
+	public int cid;
 	
 	public Info(){}
 	

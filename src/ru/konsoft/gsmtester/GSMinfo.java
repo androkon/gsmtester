@@ -2,8 +2,6 @@ package ru.konsoft.gsmtester;
 
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.List;
-import java.lang.reflect.Method;
 
 import android.app.Activity;
 import android.os.Bundle;
@@ -11,7 +9,6 @@ import android.os.Handler;
 import android.telephony.PhoneStateListener;
 import android.telephony.SignalStrength;
 import android.telephony.TelephonyManager;
-import android.telephony.CellLocation;
 import android.telephony.gsm.GsmCellLocation;
 import android.util.Log;
 import android.view.Menu;
@@ -31,10 +28,10 @@ public class GSMinfo extends Activity {
 	private static final int MODERATE_LEVEL = 25;
 	private static final int WEAK_LEVEL = 0;
 	
-	private Info[] lastInfo = Info[2];
-	private static Info currInfo = new Info();
-	private static String diff = "";
-	private static String lastdeviceinfo = "";
+	private Info[] lastInfo = new Info[2];
+	private static Info[] currInfo = new Info[2];
+	private static String[] diff = new String[2];
+	private static String[] lastdeviceinfo = new String[2];
 	
 	private Timer timer = new Timer();
 	private final Handler timeHandler = new Handler();
@@ -43,10 +40,20 @@ public class GSMinfo extends Activity {
 	
 	private boolean draw = true;
 	
+	private void initDuo(int sim){
+		lastInfo[sim] = new Info();
+        currInfo[sim] = new Info();
+        diff[sim] = new String();
+        lastdeviceinfo[sim] = new String();
+	}
+	
 	@Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_gsminfo);
+        
+        initDuo(0);
+        initDuo(1);
         
         try{
 	        startAllListeners();
@@ -87,36 +94,36 @@ public class GSMinfo extends Activity {
 		return progress;
 	}
 	
-	private void setInfo(){
+	private void setInfo(int sim){
 		try{
-			currInfo.operator = tm.getNetworkOperatorName(0);
-			currInfo.nettype = tm.getNetworkType();
-			currInfo.opercode = Integer.parseInt(tm.getNetworkOperator());
-			GsmCellLocation cl = (GsmCellLocation) tm.getCellLocation();
-			currInfo.cid = cl.getCid();
-			currInfo.lac = cl.getLac();
+			currInfo[sim].operator = tm.getNetworkOperatorName(0);
+			currInfo[sim].nettype = tm.getNetworkType(0);
+			currInfo[sim].opercode = Integer.parseInt(tm.getNetworkOperator(0));
+			GsmCellLocation cl = (GsmCellLocation) tm.getCellLocation(0);
+			currInfo[sim].cid = cl.getCid();
+			currInfo[sim].lac = cl.getLac();
 		}catch(Exception e){
 			setTextViewText(R.id.device_info, "some errors");
 		}
 	}
 	
-	private void saveLog(){
-		if(! isInfoReady())
+	private void saveLog(int sim){
+		if(! isInfoReady(currInfo[sim]))
 			return;
 			
-		if(currInfo.equals(lastInfo))
+		if(currInfo[sim].equals(lastInfo[sim]))
 			return;
 			
-		diff = currInfo.getDiff(lastInfo);
-		lastdeviceinfo = getGsmTextInfo(lastInfo);
+		diff[sim] = currInfo[sim].getDiff(lastInfo[sim]);
+		lastdeviceinfo[sim] = getGsmTextInfo(lastInfo[sim]);
 		
-		lastInfo = new Info(currInfo);
-		lastInfo.time = System.currentTimeMillis();
+		lastInfo[sim] = new Info(currInfo[sim]);
+		lastInfo[sim].time = System.currentTimeMillis();
 		
-		addToStorage();
+		addToStorage(lastInfo[sim]);
 	}
 	
-	private boolean isInfoReady(){
+	private static boolean isInfoReady(Info currInfo){
 		return true;
 		
 		/*if(
@@ -129,7 +136,7 @@ public class GSMinfo extends Activity {
 			return false;*/
 	}
 	
-	private void addToStorage(){
+	private void addToStorage(Info simInfo){
 		//Log.e(getPackageName(), "add to storage: " + getLastGsmTextInfo());
 	}
 	
@@ -144,29 +151,31 @@ public class GSMinfo extends Activity {
 		return deviceinfo;
 	}
 	
-	private void displayInfo(){
+	private void displayInfo(int sim){
 		if(! draw)
 			return;
-			
-		String signalLevelString = getSignalLevelString(currInfo.level);
-		((ProgressBar) findViewById(R.id.signalLevel)).setProgress(currInfo.level);
-		setTextViewText(R.id.signalLevelInfo, signalLevelString + " (" + currInfo.level + ")");
-
-		setTextViewText(R.id.device_info, getGsmTextInfo(currInfo) + "\n" + 
-			"\nDiff: " + diff + "\n\nLast: \n" + lastdeviceinfo);
 		
-		if(currInfo.lat != 0 && currInfo.lon != 0){
+		Info info = currInfo[sim];
+		
+		String signalLevelString = getSignalLevelString(info.level);
+		((ProgressBar) findViewById(R.id.signalLevel)).setProgress(info.level);
+		setTextViewText(R.id.signalLevelInfo, signalLevelString + " (" + info.level + ")");
+
+		setTextViewText(R.id.device_info, getGsmTextInfo(info) + "\n" + 
+			"\nDiff: " + diff[sim] + "\n\nLast: \n" + lastdeviceinfo[sim]);
+		
+		if(info.lat != 0 && info.lon != 0){
 			String gpsinfo = "";
-			gpsinfo += "lat: " + currInfo.lat + "\n";
-			gpsinfo += "lon: " + currInfo.lon + "\n";
-			gpsinfo += "acc: " + currInfo.accuracy + " m";
+			gpsinfo += "lat: " + info.lat + "\n";
+			gpsinfo += "lon: " + info.lon + "\n";
+			gpsinfo += "acc: " + info.accuracy + " m";
 			setTextViewText(R.id.gps_info, gpsinfo);
 		}else{
 			setTextViewText(R.id.gps_info, "No GPS");
 		}
 	}
 	
-	private String getSignalLevelString(int level) {
+	private static String getSignalLevelString(int level) {
 		String signalLevelString = "Absent";
 		if (level > EXCELLENT_LEVEL)
 			signalLevelString = "Excellent";
@@ -181,37 +190,19 @@ public class GSMinfo extends Activity {
 	
 	private void stopListening() {
 		
-		tm.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE);
+		tm.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE, 0);
+		tm.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE, 1);
 		
 		timer.cancel();
 	}
 		
 	private void startAllListeners() {
 		// get GSM mobile network settings
-		tm = (DuoTelephonyManager) getSystemService(TELEPHONY_SERVICE);
-		int events = PhoneStateListener.LISTEN_SIGNAL_STRENGTHS;
-		tm.listen(phoneStateListener, events);
-		setSignalLevel(99);
-		
-		Class c = tm.getClass();
-		Method m[] = c.getDeclaredMethods();
-		for(int i = 0; i < m.length; i++){
-			Log.e("c", m[i].toString());
-		}
-		Class a[] = new Class[1];
-		a[0] = Integer.TYPE;
-		String o = new String("");
-		try{
-			m[0] = c.getDeclaredMethod("getNetworkOperatorNameGemini", a);
-			o = (String) m[0].invoke(tm, 1);
-			Log.e("ccc net", o);
-		}catch(NoSuchMethodException e){
-			Log.e("cccccc", e.toString());
-		}catch(Exception e){
-			Log.e("ccc", e.toString());
-		}
-
+		tm = new DuoTelephonyManager((TelephonyManager) getSystemService(TELEPHONY_SERVICE));
 		//finish();
+		int events = PhoneStateListener.LISTEN_SIGNAL_STRENGTHS;
+		tm.listen(phoneStateListener, events, 0);
+		tm.listen(phoneStateListener, events, 1);
 		
 		// get GPS coordinates
 		lm = (LocationManager) getSystemService(LOCATION_SERVICE);
@@ -230,9 +221,14 @@ public class GSMinfo extends Activity {
 				timeHandler.post(new Runnable() {
 					@Override
 					public void run() {
-						setInfo();
-						saveLog();
-						displayInfo();
+						setInfo(0);
+						setInfo(1);
+						
+						saveLog(0);
+						saveLog(1);
+						
+						displayInfo(0);
+						displayInfo(1);
 					}
 				});
 			}
@@ -244,7 +240,7 @@ public class GSMinfo extends Activity {
 		@Override
 		public void onSignalStrengthsChanged(SignalStrength signalStrength) {
 			
-			currInfo.level = setSignalLevel(signalStrength.getGsmSignalStrength());
+			currInfo[0].level = setSignalLevel(signalStrength.getGsmSignalStrength());
 			
 			super.onSignalStrengthsChanged(signalStrength);
 		}
@@ -277,10 +273,15 @@ public class GSMinfo extends Activity {
 		
 		@Override
 		public void onLocationChanged(Location location) {
-			currInfo.lat = location.getLatitude();
-			currInfo.lon = location.getLongitude();
-			currInfo.accuracy = location.getAccuracy();
+			setLocation(0, location);
+			setLocation(1, location);
 			//Log.e(getPackageName(), "change lat: " + Location.convert(lastLocation.getLatitude(), Location.FORMAT_SECONDS));
+		}
+		
+		private void setLocation(int sim, Location location){
+			currInfo[sim].lat = location.getLatitude();
+			currInfo[sim].lon = location.getLongitude();
+			currInfo[sim].accuracy = location.getAccuracy();
 		}
 
 		@Override
@@ -290,7 +291,11 @@ public class GSMinfo extends Activity {
 
 		@Override
 		public void onProviderDisabled(String provider) {
-			currInfo.lat = currInfo.lon = currInfo.accuracy = 0;
+			Location l = new Location("gps");
+			l.setLatitude(0);
+			l.setLongitude(0);
+			l.setAccuracy(0);
+			setLocation(0, l);
 			//Log.e(getPackageName(), "gps: onProviderDisabled");
 		}
 		
