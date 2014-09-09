@@ -4,14 +4,9 @@ public class Info {
 
 	public long time;
 
-	public double lat;
-	public double lon;
-	
-	public float accuracy;
-
 	public int level;
 	public int nettype;
-	public String operator = "";
+	public String operator = new String();
 	public int opercode;
 	public int lac;
 	public int cid;
@@ -19,12 +14,10 @@ public class Info {
 	public Info(){}
 	
 	public Info(Info i){
-		this.lat = i.lat;
-		this.lon = i.lon;
-		
+
 		this.level = i.level;
 		this.nettype = i.nettype;
-		this.operator = new String(i.operator);
+		this.operator = i.operator;
 		this.opercode = i.opercode;
 		this.lac = i.lac;
 		this.cid = i.cid;
@@ -34,9 +27,6 @@ public class Info {
 	public boolean equals(Info i)
 	{
 		if(
-			this.lat == i.lat &&
-			this.lon == i.lon &&
-			
 			this.level == i.level &&
 			this.nettype == i.nettype &&
 			this.operator.equalsIgnoreCase(i.operator) &&
@@ -52,10 +42,6 @@ public class Info {
 	public String getDiff(Info i){
 		String s = "";
 		
-		if(this.lat != i.lat)
-			s += "lat;";
-		if(this.lon != i.lon)
-			s += "lon;";
 		if(this.level != i.level)
 			s += "level;";
 		if(this.nettype != i.nettype)

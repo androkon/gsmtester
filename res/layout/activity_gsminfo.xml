@@ -2,55 +2,102 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     android:paddingBottom="@dimen/activity_vertical_margin"
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
-    android:orientation="vertical"
-    android:scrollbarStyle="insideOverlay"
     android:scrollbarAlwaysDrawVerticalTrack="false"
+    android:scrollbarStyle="insideOverlay"
     tools:context="ru.konsoft.gsmtester.GSMinfo" >
 
-<!--  https://github.com/IanDarwin/Android-Cookbook-Examples/blob/master/TelephonyManager/res/layout/main.xml -->
+    <!-- https://github.com/IanDarwin/Android-Cookbook-Examples/blob/master/TelephonyManager/res/layout/main.xml -->
 
-	<LinearLayout 
-	    android:orientation="vertical" 
-	    android:layout_width="fill_parent" 
-	    android:layout_height="wrap_content"> 
-         <LinearLayout 
-             android:layout_width="fill_parent" 
-             android:layout_height="wrap_content" 
-             android:orientation="horizontal">                
+    <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical" >
 
-                 <TextView
-                     style="@style/labelStyleRight"
-                     android:layout_weight="0.5"
-                     android:text="@string/signal_level" />
+        <LinearLayout
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:baselineAligned="false"
+            android:orientation="horizontal" >
 
-                 <LinearLayout 
-                     android:layout_width="fill_parent" 
-                     android:layout_height="wrap_content" 
-                     android:layout_weight="0.5" 
-                     android:orientation="horizontal">
-                         <ProgressBar 
-                             android:id="@+id/signalLevel" 
-                             style="@style/progressStyle"/>
-                         <TextView 
-                             android:id="@+id/signalLevelInfo" 
-                             style="@style/textSmallStyle"/>
-                 </LinearLayout>
+            <LinearLayout
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="0.5"
+                android:orientation="vertical" >
+
+                <TextView
+                    style="@style/labelStyleLeft"
+                    android:text="SIM1" />
+
+                <LinearLayout
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" >
+
+                    <ProgressBar
+                        android:id="@+id/signalLevel0"
+                        style="@style/progressStyle"
+                        android:layout_height="wrap_content" />
+
+                    <TextView
+                        android:id="@+id/signalLevelInfo0"
+                        style="@style/textSmallStyle"
+                        android:layout_height="wrap_content" />
+
+                </LinearLayout>
+
+	            <TextView
+	                android:id="@+id/device_info0"
+	                style="@style/labelStyleLeft" />
+
+			</LinearLayout>
+
+            <LinearLayout
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="0.5"
+                android:orientation="vertical" >
+
+                <TextView
+                    style="@style/labelStyleLeft"
+                    android:text="SIM2" />
+
+                <LinearLayout
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" >
+
+                    <ProgressBar
+                        android:id="@+id/signalLevel1"
+                        style="@style/progressStyle"
+                        android:layout_height="wrap_content" />
+
+                    <TextView
+                        android:id="@+id/signalLevelInfo1"
+                        style="@style/textSmallStyle"
+                        android:layout_height="wrap_content" />
+
+                </LinearLayout>
+	            <TextView
+	                android:id="@+id/device_info1"
+	                style="@style/labelStyleLeft" />
+                </LinearLayout>
         </LinearLayout>
-         <LinearLayout 
-             android:layout_width="fill_parent" 
-             android:layout_height="wrap_content" 
-             android:orientation="horizontal">                
-	         <TextView 
-	            android:id="@+id/device_info" 
-	            style="@style/labelStyleLeft"/>
-	        <TextView 
-	            android:id="@+id/gps_info" 
-	            style="@style/labelStyleLeft"/>
-        	</LinearLayout>
-       	</LinearLayout>
-         
+
+        <LinearLayout
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" >
+
+            <TextView
+                android:id="@+id/gps_info"
+                style="@style/labelStyleLeft" />
+        </LinearLayout>
+    </LinearLayout>
+
 </ScrollView>
