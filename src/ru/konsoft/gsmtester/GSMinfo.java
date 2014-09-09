@@ -96,10 +96,10 @@ public class GSMinfo extends Activity {
 	
 	private void setInfo(int sim){
 		try{
-			currInfo[sim].operator = tm.getNetworkOperatorName(0);
-			currInfo[sim].nettype = tm.getNetworkType(0);
-			currInfo[sim].opercode = Integer.parseInt(tm.getNetworkOperator(0));
-			GsmCellLocation cl = (GsmCellLocation) tm.getCellLocation(0);
+			currInfo[sim].operator = tm.getNetworkOperatorName(sim);
+			currInfo[sim].nettype = tm.getNetworkType(sim);
+			currInfo[sim].opercode = Integer.parseInt(tm.getNetworkOperator(sim));
+			GsmCellLocation cl = (GsmCellLocation) tm.getCellLocation(sim);
 			currInfo[sim].cid = cl.getCid();
 			currInfo[sim].lac = cl.getLac();
 		}catch(Exception e){
@@ -136,7 +136,7 @@ public class GSMinfo extends Activity {
 			return false;*/
 	}
 	
-	private void addToStorage(Info simInfo){
+	private void addToStorage(Info info){
 		//Log.e(getPackageName(), "add to storage: " + getLastGsmTextInfo());
 	}
 	
@@ -155,14 +155,17 @@ public class GSMinfo extends Activity {
 		if(! draw)
 			return;
 		
-		Info info = currInfo[sim];
+		Info info = currInfo[0];
 		
 		String signalLevelString = getSignalLevelString(info.level);
 		((ProgressBar) findViewById(R.id.signalLevel)).setProgress(info.level);
 		setTextViewText(R.id.signalLevelInfo, signalLevelString + " (" + info.level + ")");
 
-		setTextViewText(R.id.device_info, getGsmTextInfo(info) + "\n" + 
-			"\nDiff: " + diff[sim] + "\n\nLast: \n" + lastdeviceinfo[sim]);
+		setTextViewText(R.id.device_info, "SIM1\n\n" + getGsmTextInfo(info) + "\n" + 
+			//"\nDiff: " + diff[0] + "\n\nLast: \n" + lastdeviceinfo[0] + "\n" +
+			"\nSIM2\n\n" + getGsmTextInfo(currInfo[1])// + "\n" +
+			//"\nDiff: " + diff[1] + "\n\nLast: \n" + lastdeviceinfo[1]
+			);
 		
 		if(info.lat != 0 && info.lon != 0){
 			String gpsinfo = "";
@@ -190,8 +193,8 @@ public class GSMinfo extends Activity {
 	
 	private void stopListening() {
 		
-		tm.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE, 0);
-		tm.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE, 1);
+		tm.listen(phoneStateListener0, PhoneStateListener.LISTEN_NONE, 0);
+		tm.listen(phoneStateListener1, PhoneStateListener.LISTEN_NONE, 1);
 		
 		timer.cancel();
 	}
@@ -199,10 +202,11 @@ public class GSMinfo extends Activity {
 	private void startAllListeners() {
 		// get GSM mobile network settings
 		tm = new DuoTelephonyManager((TelephonyManager) getSystemService(TELEPHONY_SERVICE));
-		//finish();
+		if(! tm.duoReady)
+			finish();
 		int events = PhoneStateListener.LISTEN_SIGNAL_STRENGTHS;
-		tm.listen(phoneStateListener, events, 0);
-		tm.listen(phoneStateListener, events, 1);
+		tm.listen(phoneStateListener0, events, 0);
+		tm.listen(phoneStateListener1, events, 1);
 		
 		// get GPS coordinates
 		lm = (LocationManager) getSystemService(LOCATION_SERVICE);
@@ -235,16 +239,28 @@ public class GSMinfo extends Activity {
 		}, delay, interval);
 	}
 	
-	private final PhoneStateListener phoneStateListener = new PhoneStateListener() {
+	private final PhoneStateListener phoneStateListener0 = new PhoneStateListener() {
 
 		@Override
 		public void onSignalStrengthsChanged(SignalStrength signalStrength) {
 			
 			currInfo[0].level = setSignalLevel(signalStrength.getGsmSignalStrength());
-			
+			//Log.e("qwersl", signalStrength.getGsmSignalStrength() + ";sim;" + sim);
 			super.onSignalStrengthsChanged(signalStrength);
 		}
 	
+	};
+	
+	private final PhoneStateListener phoneStateListener1 = new PhoneStateListener() {
+
+		@Override
+		public void onSignalStrengthsChanged(SignalStrength signalStrength) {
+
+			currInfo[1].level = setSignalLevel(signalStrength.getGsmSignalStrength());
+			//Log.e("qwersl", signalStrength.getGsmSignalStrength() + ";sim;" + sim);
+			super.onSignalStrengthsChanged(signalStrength);
+		}
+
 	};
 	
 	private static String getNetworkTypeString(int val){
@@ -296,6 +312,7 @@ public class GSMinfo extends Activity {
 			l.setLongitude(0);
 			l.setAccuracy(0);
 			setLocation(0, l);
+			setLocation(1, l);
 			//Log.e(getPackageName(), "gps: onProviderDisabled");
 		}
 		

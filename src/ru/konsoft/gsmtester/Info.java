@@ -1,6 +1,6 @@
 package ru.konsoft.gsmtester;
 
-public class Info extends Object{
+public class Info {
 
 	public long time;
 
