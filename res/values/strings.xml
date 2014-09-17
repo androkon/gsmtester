@@ -7,5 +7,6 @@
     <string name="action_settings">Settings</string>
     <string name="signal_level">Signal Level</string>
     <string name="action_exit">Exit</string>
+    <string name="emulate_gps">emulate_gps</string>
     
 </resources>

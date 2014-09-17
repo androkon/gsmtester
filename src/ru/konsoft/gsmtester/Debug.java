@@ -1,9 +1,8 @@
 package ru.konsoft.gsmtester;
 
 import android.util.Log;
-import java.io.*;
 
-public class Error {
+public class Debug {
 	public static String stack(Exception e) {
 		StackTraceElement[] stack = e.getStackTrace();
 		StringBuilder s = new StringBuilder();

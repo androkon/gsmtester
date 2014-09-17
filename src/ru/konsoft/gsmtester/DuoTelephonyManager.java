@@ -18,7 +18,7 @@ public class DuoTelephonyManager extends Object {
 	private static final int M_OPERATOR = 3;
 	private static final int M_CELL = 4;
 	
-	public static boolean duoReady = false;
+	public boolean duoReady = false;
 	
 	public DuoTelephonyManager(TelephonyManager telephonyManager) {
 		tm = telephonyManager;
@@ -41,7 +41,7 @@ public class DuoTelephonyManager extends Object {
 			
 			duoReady = true;
 		}catch(Exception e){
-			Log.e("qwererr", Error.stack(e));
+			Log.e("qwererr", Debug.stack(e));
 		}
 	}
 	
@@ -51,7 +51,7 @@ public class DuoTelephonyManager extends Object {
 		try{
 			name = (String) m[M_NAME].invoke(tm, sim);
 		}catch(Exception e){
-			Log.e("qwererr", Error.stack(e));
+			Log.e("qwererr", Debug.stack(e));
 		}
 		
 		return name;
@@ -63,7 +63,7 @@ public class DuoTelephonyManager extends Object {
 		try{
 			type = (Integer) m[M_TYPE].invoke(tm, sim);
 		}catch(Exception e){
-			Log.e("qwererr", Error.stack(e));
+			Log.e("qwererr", Debug.stack(e));
 		}
 		
 		return type;
@@ -75,7 +75,7 @@ public class DuoTelephonyManager extends Object {
 		try{
 			operator = (String) m[M_OPERATOR].invoke(tm, sim);
 		}catch(Exception e){
-			Log.e("qwererr: " + sim, Error.stack(e));
+			Log.e("qwererr: " + sim, Debug.stack(e));
 		}
 		
 		if("".equals(operator))
@@ -90,7 +90,7 @@ public class DuoTelephonyManager extends Object {
 		try{
 			cell = (CellLocation) m[M_CELL].invoke(tm, sim);
 		}catch(Exception e){
-			Log.e("qwererr", Error.stack(e));
+			Log.e("qwererr", Debug.stack(e));
 		}
 		
 		return cell;
@@ -100,7 +100,7 @@ public class DuoTelephonyManager extends Object {
 		try{
 			m[M_LISTEN].invoke(tm, phoneStateListener, events, sim);
 		}catch(Exception e){
-			Log.e("qwererr", Error.stack(e));
+			Log.e("qwererr", Debug.stack(e));
 		}
 	}
 	
