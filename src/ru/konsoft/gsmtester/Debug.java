@@ -3,20 +3,24 @@ package ru.konsoft.gsmtester;
 import android.util.Log;
 
 public class Debug {
+	private static final String LOG_TAG = "qwer";
+	
 	public static String stack(Exception e) {
 		StackTraceElement[] stack = e.getStackTrace();
-		StringBuilder s = new StringBuilder();
+		StringBuilder sb = new StringBuilder();
 		
-		if(stack != null){
-			for(int i = 0; i < stack.length; i++){
-				s.append(stack[i].toString()).append("\n");
-			}
+		if(e.getMessage() != null)
+			sb.append("Message: ").append(e.getMessage()).append("\n");
+		
+		sb.append("Stack: ");
+		for(StackTraceElement se : stack){
+			sb.append(se.toString()).append("\n");
 		}
 		
-		return s.toString();
+		return sb.toString();
 	}
 	
 	public static void log(String msg) {
-		Log.e("qwer", msg);
+		Log.e(LOG_TAG, msg);
 	}
 }

@@ -5,13 +5,11 @@ import java.lang.reflect.Method;
 import android.telephony.CellLocation;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
-import android.util.Log;
-import java.util.*;
 
 public class DuoTelephonyManager {
-	private static TelephonyManager tm;
+	private TelephonyManager mStdTelephonyManager;
 	
-	private static Method[] m = new Method[6];
+	private Method[] mMethods = new Method[6];
 	
 	private static final int M_LISTEN = 0;
 	private static final int M_NAME = 1;
@@ -21,56 +19,72 @@ public class DuoTelephonyManager {
 	private static final int M_DATASTATE = 5;
 	private static final int M_TEST = 6;
 	
-	public boolean duoReady = false;
+	private boolean mDuoReady = false;
 	
+	public DuoTelephonyManager(TelephonyManager telephonyManager) {
+		initDuoTelephonyManager(telephonyManager);
+	}
+
 	public DuoTelephonyManager(TelephonyManager telephonyManager, GSMinfo activiti) {
-		tm = telephonyManager;
-		Class<? extends TelephonyManager> tl = tm.getClass();
-		Class<?> args[], params[], ret;
+		initDuoTelephonyManager(telephonyManager);
 		
 		try{
-			Method[] mm = tl.getDeclaredMethods();
+			Class<? extends TelephonyManager> tl = mStdTelephonyManager.getClass();
+			Class<?> params[], ret;
+			Method[] methods = tl.getDeclaredMethods();
 			StringBuilder sb = new StringBuilder();
-			for(Method mi: mm){
-				params = mi.getParameterTypes();
-				ret = mi.getReturnType();
+			for(Method method: methods){
+				params = method.getParameterTypes();
+				ret = method.getReturnType();
 				
-				sb.append(mi.getName()).append("\n");
+				sb.append("Name: ").append(method.getName()).append("\n");
 				for(Class<?> param: params) {
-					sb.append("\t").append(param.getCanonicalName()).append("\n");
+					sb.append("\tParam: ").append(param.getCanonicalName()).append("\n");
 				}
-				sb.append("\t\t").append(ret.getCanonicalName()).append("\n");
+				sb.append("\tReturn: ").append(ret.getCanonicalName()).append("\n");
 			}
-			activiti.debug(sb.toString());
-			
+			activiti.debugScreen(sb.toString());
+		}catch(Exception e){
+			Debug.log(Debug.stack(e));
+		}
+	}
+	
+	private void initDuoTelephonyManager(TelephonyManager telephonyManager) {
+		mStdTelephonyManager = telephonyManager;
+		
+		try{
+			Class<? extends TelephonyManager> tl = mStdTelephonyManager.getClass();
+			Class<?> args[];
+
 			args = new Class[3];
 			args[0] = PhoneStateListener.class;
 			args[1] = Integer.TYPE;
 			args[2] = Integer.TYPE;
-			m[M_LISTEN] = tl.getDeclaredMethod("listenGemini", args);
+			mMethods[M_LISTEN] = tl.getDeclaredMethod("listenGemini", args);
 
 			args = new Class[1];
 			args[0] = Integer.TYPE;
-			m[M_NAME] = tl.getDeclaredMethod("getNetworkOperatorNameGemini", args);
-			m[M_TYPE] = tl.getDeclaredMethod("getNetworkTypeGemini", args);
-			m[M_OPERATOR] = tl.getDeclaredMethod("getNetworkOperatorGemini", args);
-			m[M_CELL] = tl.getDeclaredMethod("getCellLocationGemini", args);
-			m[M_DATASTATE] = tl.getDeclaredMethod("getDataStateGemini", args);
+			mMethods[M_NAME] = tl.getDeclaredMethod("getNetworkOperatorNameGemini", args);
+			mMethods[M_TYPE] = tl.getDeclaredMethod("getNetworkTypeGemini", args);
+			mMethods[M_OPERATOR] = tl.getDeclaredMethod("getNetworkOperatorGemini", args);
+			mMethods[M_CELL] = tl.getDeclaredMethod("getCellLocationGemini", args);
+			mMethods[M_DATASTATE] = tl.getDeclaredMethod("getDataStateGemini", args);
+			
 			//m[M_TEST] = tl.getDeclaredMethod("getNetworkClass", null);
 			
-			duoReady = true;
+			mDuoReady = true;
 		}catch(Exception e){
-			Log.e("qwererr", Debug.stack(e));
+			Debug.log(Debug.stack(e));
 		}
 	}
-	
+
 	public String getNetworkOperatorName(int sim) {
 		String name = "";
 		
 		try{
-			name = (String) m[M_NAME].invoke(tm, sim);
+			name = (String) mMethods[M_NAME].invoke(mStdTelephonyManager, sim);
 		}catch(Exception e){
-			Log.e("qwererr", Debug.stack(e));
+			Debug.log(Debug.stack(e));
 		}
 		
 		return name;
@@ -80,36 +94,36 @@ public class DuoTelephonyManager {
 		int type = 0;
 		
 		try{
-			type = (Integer) m[M_TYPE].invoke(tm, sim);
+			type = (Integer) mMethods[M_TYPE].invoke(mStdTelephonyManager, sim);
 		}catch(Exception e){
-			Log.e("qwererr", Debug.stack(e));
+			Debug.log(Debug.stack(e));
 		}
 		
 		return type;
 	}
 
 	public String getNetworkOperator(int sim) {
-		String operator = "";
+		String opercode = "";
 		
 		try{
-			operator = (String) m[M_OPERATOR].invoke(tm, sim);
+			opercode = (String) mMethods[M_OPERATOR].invoke(mStdTelephonyManager, sim);
 		}catch(Exception e){
-			Log.e("qwererr: " + sim, Debug.stack(e));
+			Debug.log(Debug.stack(e));
 		}
 		
-		if("".equals(operator))
-			operator = "0";
+		if("".equals(opercode))
+			opercode = "0";
 			
-		return operator;
+		return opercode;
 	}
 
 	public CellLocation getCellLocation(int sim) {
 		CellLocation cell = null;
 		
 		try{
-			cell = (CellLocation) m[M_CELL].invoke(tm, sim);
+			cell = (CellLocation) mMethods[M_CELL].invoke(mStdTelephonyManager, sim);
 		}catch(Exception e){
-			Log.e("qwererr", Debug.stack(e));
+			Debug.log(Debug.stack(e));
 		}
 		
 		return cell;
@@ -119,9 +133,9 @@ public class DuoTelephonyManager {
 		int state = 0;
 
 		try{
-			state = (Integer) m[M_DATASTATE].invoke(tm, sim);
+			state = (Integer) mMethods[M_DATASTATE].invoke(mStdTelephonyManager, sim);
 		}catch(Exception e){
-			Log.e("qwererr", Debug.stack(e));
+			Debug.log(Debug.stack(e));
 		}
 
 		return state;
@@ -131,9 +145,9 @@ public class DuoTelephonyManager {
 		String name = "";
 
 		try{
-			name = (String) m[M_TEST].invoke(tm);
+			name = (String) mMethods[M_TEST].invoke(mStdTelephonyManager);
 		}catch(Exception e){
-			Log.e("qwererr: " + sim, Debug.stack(e));
+			Debug.log(Debug.stack(e));
 		}
 
 		if("".equals(name))
@@ -144,10 +158,18 @@ public class DuoTelephonyManager {
 	
 	public void listen(PhoneStateListener phoneStateListener, int events, int sim) {
 		try{
-			m[M_LISTEN].invoke(tm, phoneStateListener, events, sim);
+			mMethods[M_LISTEN].invoke(mStdTelephonyManager, phoneStateListener, events, sim);
 		}catch(Exception e){
-			Log.e("qwererr", Debug.stack(e));
+			Debug.log(Debug.stack(e));
 		}
 	}
-	
+
+	public boolean isDuoReady() {
+		return mDuoReady;
+	}
+
+	public TelephonyManager getStdTelephonyManager() {
+		return mStdTelephonyManager;
+	}
+
 }

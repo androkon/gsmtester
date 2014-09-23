@@ -26,34 +26,33 @@ import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.net.TrafficStats;
-import android.os.*;
 
 public class GSMinfo extends Activity {
 
-	private static DuoTelephonyManager tm;
+	private DuoTelephonyManager mDuoTM;
 	
 	private static final int SIM_CNT = 2;
-	private static Info[] lastInfo = new Info[SIM_CNT];
-	private static Info[] currInfo = new Info[SIM_CNT];
+	private Info[] mLastInfo = new Info[SIM_CNT];
+	private Info[] mCurrInfo = new Info[SIM_CNT];
+	private Object mInfoLock = new Object();
 	
-	private Timer timer = new Timer();
-	private static Handler timeHandler = new Handler();
-	private static long timerDelay = 1000; // millisec
-	private static long timerInterval = 1000; // millisec
+	private Timer mTimer = new Timer();
+	private Handler mTimerHandler = new Handler();
+	private static final long TIMER_DELAY = 1000; // millisec
+	private static final long TIMER_INTERVAL = 1000; // millisec
 	
-	private static LocationManager lm;
-	private static Location loc = new Location("gps");
-	private static float dist = 0; // meter
-	private static int gpsUpdateInterval = 1000; // millisec
-	private static int gpsUpdateDist = 2; // meter
-	private boolean emulateGps;
-	
-	private static boolean draw = true;
+	private LocationManager mLM;
+	private float mDist; // meter
+	private static final int GPS_UPDATE_INTERVAL = 1000; // millisec
+	private static final int GPS_UPDATE_DISTANCE = 2; // meter
+	private boolean mEmulateGps;
+
+	private boolean mDraw = true;
 	
 	private void initDuo() {
 		for(int i = 0; i < SIM_CNT; i++){
-			lastInfo[i] = new Info(i);
-	        currInfo[i] = new Info(i);
+			mLastInfo[i] = new Info(i);
+	        mCurrInfo[i] = new Info(i);
 		}
 	}
 	
@@ -67,20 +66,19 @@ public class GSMinfo extends Activity {
         try{
 	        startAllListeners();
         }catch(Exception e){
-        	debug("create " + Debug.stack(e));
+        	debugScreen("create " + Debug.stack(e));
         }
-	
 	}
 	
 	@Override
 	protected void onPause() {
-		draw = false;
+		mDraw = false;
 		super.onPause();
 	}
 
 	@Override
 	protected void onResume() {
-		draw = true;
+		mDraw = true;
 		super.onResume();
 	}
 	
@@ -106,39 +104,44 @@ public class GSMinfo extends Activity {
 		return progress;
 	}
 	
-	private void setInfo() {
+	private void setGpsInfo(Location location){
+		for(int i = 0; i < SIM_CNT; i++){
+			mCurrInfo[i].setGps(location);
+		}
+
+		float res[] = new float[1];
+		Location.distanceBetween(mLastInfo[0].getLat(), mLastInfo[0].getLon(), 
+			mCurrInfo[0].getLat(), mCurrInfo[0].getLon(), res);
+		mDist = res[0];
+	}
+	
+	private void setGsmInfo() {
 		long time = System.currentTimeMillis();
 		
 		for(int i = 0; i < SIM_CNT; i++){
-			Info info = currInfo[i];
+			Info info = mCurrInfo[i];
 			
 			try{
-				info.opercode = Integer.valueOf(tm.getNetworkOperator(i));
-				if(info.opercode == 0){
-					info.operator = "no name";
-					info.nettype = 0;
-					info.cid = 0;
-					info.lac = 0;
-					info.level = 0;
-					info.progress = 0;
-					info.datastate = 0;
+				info.setOpercode(Integer.valueOf(mDuoTM.getNetworkOperator(i)));
+				if(info.getOpercode() == 0){
+					info.resetGsm();
 				}else{
-					info.progress = getSignalLevelProgress(info.level);
-					info.operator = tm.getNetworkOperatorName(i);
-					info.nettype = tm.getNetworkType(i);		
-					GsmCellLocation cl = (GsmCellLocation) tm.getCellLocation(i);
-					info.cid = cl.getCid();
-					info.lac = cl.getLac();
-					info.datastate = tm.getDataState(i);
+					info.setProgress(getSignalLevelProgress(info.getLevel()));
+					info.setOperator(mDuoTM.getNetworkOperatorName(i));
+					info.setNettype(mDuoTM.getNetworkType(i));		
+					GsmCellLocation cl = (GsmCellLocation) mDuoTM.getCellLocation(i);
+					info.setCID(cl.getCid());
+					info.setLAC(cl.getLac());
+					info.setDatastate(mDuoTM.getDataState(i));
 				}
 			}catch(Exception e){
-				debug("error sim " + i + " " + Debug.stack(e));
+				debugScreen("error sim " + i + " " + Debug.stack(e));
 			}
 			
-			info.rx = TrafficStats.getMobileRxBytes();
-			info.tx = TrafficStats.getMobileTxBytes();
+			info.setRX(TrafficStats.getMobileRxBytes());
+			info.setTX(TrafficStats.getMobileTxBytes());
 			
-			info.time = time;
+			info.setTime(time);
 		}
 	}
 	
@@ -146,25 +149,30 @@ public class GSMinfo extends Activity {
 		for(int i = 0; i < SIM_CNT; i++){
 			Info last, curr;
 			
-			last = lastInfo[i];
-			curr = currInfo[i];
+			last = mLastInfo[i];
+			curr = mCurrInfo[i];
 
-			last.operator = curr.operator;
-			last.opercode = curr.opercode;
-			last.nettype = curr.nettype;
-			last.level = curr.level;
-			last.progress = curr.progress;
-			last.cid = curr.cid;
-			last.lac = curr.lac;
-			last.datastate = curr.datastate;
+			last.setOperator(curr.getOperator());
+			last.setOpercode(curr.getOpercode());
+			last.setNettype(curr.getNettype());
+			last.setLevel(curr.getLevel());
+			last.setProgress(curr.getProgress());
+			last.setCID(curr.getCID());
+			last.setLAC(curr.getLAC());
+			last.setDatastate(curr.getDatastate());
 			
-			last.srx = (int)((curr.rx - last.rx) * 1000.0 / (curr.time - last.time));
-			last.stx = (int)((curr.tx - last.tx) * 1000.0 / (curr.time - last.time));
+			last.setSpeedRX((int)((curr.getRX() - last.getRX()) * 1000.0 / (curr.getTime() - last.getTime())));
+			last.setSpeedTX((int)((curr.getTX() - last.getTX()) * 1000.0 / (curr.getTime() - last.getTime())));
 			
-			last.rx = curr.rx;
-			last.tx = curr.tx;
+			last.setRX(curr.getRX());
+			last.setTX(curr.getTX());
 			
-			last.time = curr.time;
+			last.setLat(curr.getLat());
+			last.setLon(curr.getLon());
+			last.setAcc(curr.getAcc());
+			last.setSpeed(curr.getSpeed());
+
+			last.setTime(curr.getTime());
 		}
 	}
 	
@@ -172,41 +180,40 @@ public class GSMinfo extends Activity {
 		if(! isGpsReady())
 			return;
 			
-		addToStorage(loc, lastInfo);
+		addToStorage();
 	}
 	
 	private boolean isGpsReady() {
 		if(
-			loc.getLatitude() != 0 &&
-			loc.getLongitude() != 0 &&
-			loc.getAccuracy() < 50
-			|| emulateGps
+			mLastInfo[0].getLat() != 0.0 &&
+			mLastInfo[0].getLon() != 0.0 &&
+			mLastInfo[0].getAcc() < 50.0
+			|| mEmulateGps
 		)
 			return true;
 		else
 			return false;
 	}
 	
-	private void addToStorage(Location location, Info[] data) {
+	private void addToStorage() {
 		// create new daily log file with append
-		File dir = getExternalFilesDir(null);
-		FileWriter file;
-		String fname = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(System.currentTimeMillis())) + ".log";
-
 		try{
+			File dir = getExternalFilesDir(null);
+			FileWriter file;
+			String fname = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(System.currentTimeMillis())) + ".log";
+
 			file = new FileWriter(new File(dir, fname), true);
 
 			for(int i = 0; i < SIM_CNT; i++){
-				Info info = data[i];
-				if(info.opercode != 0){
-					String s = getLog(location, info);
-					file.write(s);
+				Info info = mLastInfo[i];
+				if(info.getOpercode() != 0){
+					file.write(getLog(info));
 				}
 			}
 			file.flush();
 			file.close();
 		}catch(Exception e){
-			debug("write " + Debug.stack(e));
+			debugScreen("write " + Debug.stack(e));
 		}
 	}
 	
@@ -214,55 +221,55 @@ public class GSMinfo extends Activity {
 		StringBuilder sb = new StringBuilder();
 		String sep = "\n";
 		
-		sb.append("Network Type: ").append(getNetworkTypeString(info.nettype)).append(sep);
-		sb.append("Level: ").append(String.valueOf(info.level)).append(sep);
-		sb.append("Progress: ").append(String.valueOf(info.progress)).append(sep);
-		sb.append("Slot: ").append(String.valueOf(info.slot)).append(sep);
-		sb.append("LAC: ").append(String.valueOf(info.lac)).append(sep);
-		sb.append("CID: ").append(String.valueOf(info.cid)).append(sep);
+		sb.append("Network Type: ").append(getNetworkTypeString(info.getNettype())).append(sep);
+		sb.append("Level: ").append(String.valueOf(info.getLevel())).append(sep);
+		sb.append("Progress: ").append(String.valueOf(info.getProgress())).append(sep);
+		sb.append("Slot: ").append(String.valueOf(info.getSlot())).append(sep);
+		sb.append("LAC: ").append(String.valueOf(info.getLAC())).append(sep);
+		sb.append("CID: ").append(String.valueOf(info.getCID())).append(sep);
+		sb.append("DataState: ").append(String.valueOf(info.getDatastate())).append(sep);
+		sb.append("Speed RX: ").append(String.valueOf(info.getSpeedRX())).append(" bytes/sec").append(sep);
+		sb.append("Speed TX: ").append(String.valueOf(info.getSpeedTX())).append(" bytes/sec").append(sep);
 		
 		sb.append(sep);
-		sb.append("DataState: ").append(String.valueOf(info.datastate)).append(sep);
 		//sb.append("Test: ").append(tm.getTest(info.slot - 1)).append(sep);
-		sb.append("Rx: ").append(String.valueOf(TrafficStats.getMobileRxBytes())).append(" byte").append(sep);
-		sb.append("Tx: ").append(String.valueOf(TrafficStats.getMobileTxBytes())).append(" byte").append(sep);
-		sb.append("Srx: ").append(String.valueOf(info.srx)).append(" byte/sec").append(sep);
-		sb.append("Stx: ").append(String.valueOf(info.stx)).append(" byte/sec").append(sep);
+		sb.append("RX: ").append(String.valueOf(TrafficStats.getMobileRxBytes())).append(" bytes").append(sep);
+		sb.append("TX: ").append(String.valueOf(TrafficStats.getMobileTxBytes())).append(" bytes").append(sep);
 		
 		return sb.toString();
 	}
 	
-	private static String getLog(Location loc, Info info) {
+	private static String getLog(Info info) {
 		StringBuilder sb = new StringBuilder();
 		String sep = ",";
 		String eol = "\n";
 
-		sb.append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(new Date(info.time))).append(sep);
-		sb.append(String.valueOf(info.time)).append(sep);
-		sb.append(String.valueOf(loc.getLatitude())).append(sep);
-		sb.append(String.valueOf(loc.getLongitude())).append(sep);
-		sb.append(String.valueOf(loc.getAccuracy())).append(sep);
-		sb.append(String.valueOf(info.slot)).append(sep);
-		sb.append(info.operator).append(sep);
-		sb.append(String.valueOf(info.opercode)).append(sep);
-		sb.append(String.valueOf(info.nettype)).append(sep);
-		sb.append(String.valueOf(info.level)).append(sep);
-		sb.append(String.valueOf(info.progress)).append(sep);
-		sb.append(String.valueOf(info.cid)).append(sep);
-		sb.append(String.valueOf(info.lac)).append(sep);
-		sb.append(String.valueOf(info.datastate)).append(sep);
-		sb.append(String.valueOf(info.srx)).append(sep);
-		sb.append(String.valueOf(info.stx)).append(eol);
+		sb.append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(new Date(info.getTime()))).append(sep);
+		sb.append(String.valueOf(info.getTime())).append(sep);
+		sb.append(String.valueOf(info.getLat())).append(sep);
+		sb.append(String.valueOf(info.getLon())).append(sep);
+		sb.append(String.valueOf(info.getAcc())).append(sep);
+		sb.append(String.valueOf(info.getSlot())).append(sep);
+		sb.append(info.getOperator()).append(sep);
+		sb.append(String.valueOf(info.getOpercode())).append(sep);
+		sb.append(String.valueOf(info.getNettype())).append(sep);
+		sb.append(String.valueOf(info.getLevel())).append(sep);
+		sb.append(String.valueOf(info.getProgress())).append(sep);
+		sb.append(String.valueOf(info.getCID())).append(sep);
+		sb.append(String.valueOf(info.getLAC())).append(sep);
+		sb.append(String.valueOf(info.getDatastate())).append(sep);
+		sb.append(String.valueOf(info.getSpeedRX())).append(sep);
+		sb.append(String.valueOf(info.getSpeedTX())).append(eol);
 			
 		return sb.toString();
 	}
 	
 	private void displayGsmInfo() {
-		if(! draw)
+		if(! mDraw)
 			return;
 		
 		for(int i = 0; i < SIM_CNT; i++){
-			Info info = lastInfo[i];
+			Info info = mLastInfo[i];
 			int signalLevel, deviceInfo, simNameId;
 			String simName;
 			
@@ -279,26 +286,28 @@ public class GSMinfo extends Activity {
 			}
 			
 			StringBuilder sb = new StringBuilder();
-			sb.append(simName).append(": ").append(info.operator);
+			sb.append(simName).append(": ").append(info.getOperator());
 
 			setTextViewText(simNameId, sb.toString());
-			((ProgressBar) findViewById(signalLevel)).setProgress(info.progress);
+			((ProgressBar) findViewById(signalLevel)).setProgress(info.getProgress());
 			setTextViewText(deviceInfo, getGsmTextInfo(info));
 		}
 	}
 	
 	private void displayGpsInfo() {
-		if(! draw)
+		if(! mDraw)
 			return;
 		
-		if(loc.getLatitude() != 0 && loc.getLongitude() != 0){
+		Info info = mLastInfo[0];
+		
+		if(info.getLat() != 0.0 && info.getLon() != 0.0){
 			StringBuilder sb = new StringBuilder();
 			
-			sb.append("lat: ").append(String.valueOf(loc.getLatitude())).append("\n");
-			sb.append("lon: ").append(String.valueOf(loc.getLongitude())).append("\n");
-			sb.append("acc: ").append(String.valueOf(loc.getAccuracy())).append(" m\n");
-			sb.append("vel: ").append(String.valueOf(loc.getSpeed())).append(" m/s\n");
-			sb.append("dist: ").append(dist).append(" m");
+			sb.append("lat: ").append(String.valueOf(info.getLat())).append("\n");
+			sb.append("lon: ").append(String.valueOf(info.getLon())).append("\n");
+			sb.append("acc: ").append(String.valueOf(info.getAcc())).append(" m\n");
+			sb.append("vel: ").append(String.valueOf(info.getSpeed())).append(" m/s\n");
+			sb.append("dist: ").append(mDist).append(" m");
 			setTextViewText(R.id.gps_info, sb.toString());
 		}else{
 			setTextViewText(R.id.gps_info, "No GPS");
@@ -306,45 +315,48 @@ public class GSMinfo extends Activity {
 	}
 	
 	private void stopListening() {
-		tm.listen(phoneStateListener0, PhoneStateListener.LISTEN_NONE, 0);
-		tm.listen(phoneStateListener1, PhoneStateListener.LISTEN_NONE, 1);
+		mDuoTM.listen(mPhoneStateListener0, PhoneStateListener.LISTEN_NONE, 0);
+		mDuoTM.listen(mPhoneStateListener1, PhoneStateListener.LISTEN_NONE, 1);
 		
-		timer.cancel();
+		mLM.removeUpdates(mGpsLocationListener);
+		
+		mTimer.cancel();
 	}
 	
-	public void debug(String text) {
+	public void debugScreen(String text) {
 		setTextViewText(R.id.error_info, text);
 	}
 		
 	private void startAllListeners() {
 		// get GSM mobile network settings
-		tm = new DuoTelephonyManager((TelephonyManager) getSystemService(TELEPHONY_SERVICE), this);
-		if(! tm.duoReady){
-			//debug("Supports only duo SIM");
+		mDuoTM = new DuoTelephonyManager((TelephonyManager) getSystemService(TELEPHONY_SERVICE));
+		if(! mDuoTM.isDuoReady()){
+			debugScreen("Supports only duo SIM");
 			return;
 		}
 		int events = PhoneStateListener.LISTEN_SIGNAL_STRENGTHS;
-		tm.listen(phoneStateListener0, events, 0);
-		tm.listen(phoneStateListener1, events, 1);
+		mDuoTM.listen(mPhoneStateListener0, events, 0);
+		mDuoTM.listen(mPhoneStateListener1, events, 1);
 		
 		// get GPS coordinates
-		lm = (LocationManager) getSystemService(LOCATION_SERVICE);
+		mLM = (LocationManager) getSystemService(LOCATION_SERVICE);
 		Criteria criteria = new Criteria();
 		criteria.setAccuracy(Criteria.ACCURACY_FINE);
 		criteria.setCostAllowed(false);
-		String provider = lm.getBestProvider(criteria, false);
+		String provider = mLM.getBestProvider(criteria, false);
 		// location updates: at least 1 sec and 2 meter change
-		lm.requestLocationUpdates(provider, gpsUpdateInterval, gpsUpdateDist, gpsLocationListener);
+		mLM.requestLocationUpdates(provider, GPS_UPDATE_INTERVAL, GPS_UPDATE_DISTANCE, mGpsLocationListener);
 
 		// create collection data timer
-		timer.schedule(new TimerTask() {
+		mTimer.schedule(new TimerTask() {
 			@Override
 			public void run() {
-				timeHandler.post(new Runnable() {
+				mTimerHandler.post(new Runnable() {
 					@Override
-					//synchronized
 					public void run() {
-						setInfo();
+						synchronized(mInfoLock) {
+							setGsmInfo();
+						}
 						swapInfo();
 						saveLog();
 						displayGsmInfo();
@@ -352,25 +364,29 @@ public class GSMinfo extends Activity {
 					}
 				});
 			}
-		}, timerDelay, timerInterval);
+		}, TIMER_DELAY, TIMER_INTERVAL);
 		
 	}
 	
-	private final PhoneStateListener phoneStateListener0 = new PhoneStateListener() {
+	private final PhoneStateListener mPhoneStateListener0 = new PhoneStateListener() {
 
 		@Override
 		public void onSignalStrengthsChanged(SignalStrength signalStrength) {
-			currInfo[0].level = signalStrength.getGsmSignalStrength();
+			synchronized(mInfoLock){
+				mCurrInfo[0].setLevel(signalStrength.getGsmSignalStrength());
+			}
 			super.onSignalStrengthsChanged(signalStrength);
 		}
 	
 	};
 	
-	private final PhoneStateListener phoneStateListener1 = new PhoneStateListener() {
+	private final PhoneStateListener mPhoneStateListener1 = new PhoneStateListener() {
 
 		@Override
 		public void onSignalStrengthsChanged(SignalStrength signalStrength) {
-			currInfo[1].level = signalStrength.getGsmSignalStrength();
+			synchronized(mInfoLock){
+				mCurrInfo[1].setLevel(signalStrength.getGsmSignalStrength());
+			}
 			super.onSignalStrengthsChanged(signalStrength);
 		}
 
@@ -398,33 +414,25 @@ public class GSMinfo extends Activity {
 		}
 	}
 
-	private final LocationListener gpsLocationListener = new LocationListener() {
+	private final LocationListener mGpsLocationListener = new LocationListener() {
 		
 		@Override
 		public void onLocationChanged(Location location) {
-			setLocation(location);
+			synchronized(mInfoLock){
+				setGpsInfo(location);
+			}
 		}
 		
-		private void setLocation(Location location){
-			float res[] = new float[1];
-			
-			Location.distanceBetween(loc.getLatitude(), loc.getLongitude(), 
-				location.getLatitude(), location.getLongitude(), res);
-			dist = res[0];
-			loc = location;
-		}
-
 		@Override
 		public void onProviderEnabled(String provider) {}
 
 		@Override
 		public void onProviderDisabled(String provider) {
-			Location noLoc = new Location("gps");
-			
-			noLoc.setLatitude(0);
-			noLoc.setLongitude(0);
-			noLoc.setAccuracy(0);
-			setLocation(noLoc);
+			synchronized(mInfoLock){
+				for(int i = 0; i < SIM_CNT; i++){
+					mCurrInfo[i].resetGps();
+				}
+			}
 		}
 		
 		@Override
@@ -462,9 +470,9 @@ public class GSMinfo extends Activity {
 		boolean on = ((ToggleButton) view).isChecked();
 		
 		if (on) {
-			emulateGps = true;
+			mEmulateGps = true;
 		} else {
-			emulateGps = false;
+			mEmulateGps = false;
 		}
 	}
     
