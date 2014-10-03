@@ -1,47 +1,49 @@
 package ru.konsoft.gsmtester;
 
-import android.app.*;
-import android.content.*;
-import android.location.*;
-import android.net.*;
-import android.os.*;
-import android.support.v4.content.*;
-import android.telephony.*;
-import android.telephony.gsm.*;
-import java.io.*;
-import java.text.*;
-import java.util.*;
-import org.json.*;
-import org.apache.http.*;
-import org.apache.http.message.*;
-import org.apache.http.client.*;
-import org.apache.http.impl.client.*;
-import org.apache.http.client.methods.*;
-import org.apache.http.params.*;
-import org.apache.http.client.entity.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.Locale;
+import java.util.Timer;
+import java.util.TimerTask;
 
-public class GSMservice extends Service
-{
+import org.apache.http.NameValuePair;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.message.BasicNameValuePair;
+import org.json.JSONArray;
+
+import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.location.Criteria;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
+import android.net.TrafficStats;
+import android.os.AsyncTask;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.IBinder;
+import android.support.v4.content.LocalBroadcastManager;
+import android.telephony.PhoneStateListener;
+import android.telephony.SignalStrength;
+import android.telephony.TelephonyManager;
+import android.telephony.gsm.GsmCellLocation;
+
+public class GSMservice extends Service {
 	
-	private BroadcastReceiver mBR = new BroadcastReceiver() {
-
-		@Override
-		public void onReceive(Context context, Intent intent) {
-			mEmulateGps = intent.getBooleanExtra(getString(R.string.gsmservice_emulate_gps), false);
-			Debug.log("emulate gps: " + mEmulateGps);
-		}
-
-	};
-
-	public static int getSIM_CNT() {
-		return SIM_CNT;
-	}
-
-	@Override
-	public IBinder onBind(Intent intent) {
-		return null;
-	}
-
 	private DuoTelephonyManager mDuoTM;
 
 	private static final int SIM_CNT = 2;
@@ -62,32 +64,133 @@ public class GSMservice extends Service
 	private final static int LOG_SIZE = 4;
 	private Info[] mLogBuff = new Info[LOG_SIZE];
 	private int mLogFill = 0;
-	private static final String mUrl = "www.kadastr-ekz.ru";
+	private static final String mLoggerUrl = "http://www.kadastr-ekz.ru/plugins/gsmlogger/logging.php";
+
+	private BroadcastReceiver mBR = new BroadcastReceiver() {
+
+		@Override
+		public void onReceive(Context context, Intent intent) {
+			mEmulateGps = intent.getBooleanExtra(getString(R.string.gsmservice_emulate_gps), false);
+			//Debug.log("emulate gps: " + mEmulateGps);
+		}
+
+	};
+
+	private final LocationListener mGpsLocationListener = new LocationListener() {
+
+		@Override
+		public void onLocationChanged(Location location) {
+			synchronized(mInfoLock){
+				setGpsInfo(location);
+			}
+		}
+
+		@Override
+		public void onProviderEnabled(String provider) {}
+
+		@Override
+		public void onProviderDisabled(String provider) {
+			synchronized(mInfoLock){
+				setGpsInfo(null);
+			}
+		}
+
+		@Override
+		public void onStatusChanged(String provider, int status, Bundle extras) {}
+
+	};
+
+	private final PhoneStateListener mPhoneStateListener1 = new PhoneStateListener() {
+
+		@Override
+		public void onSignalStrengthsChanged(SignalStrength signalStrength) {
+			synchronized(mInfoLock){
+				mCurrInfo[1].setLevel(signalStrength.getGsmSignalStrength());
+			}
+			super.onSignalStrengthsChanged(signalStrength);
+		}
+
+	};
+
+	private final PhoneStateListener mPhoneStateListener0 = new PhoneStateListener() {
+
+		@Override
+		public void onSignalStrengthsChanged(SignalStrength signalStrength) {
+			synchronized(mInfoLock){
+				mCurrInfo[0].setLevel(signalStrength.getGsmSignalStrength());
+			}
+			super.onSignalStrengthsChanged(signalStrength);
+		}
+
+	};
+
+	public class loggerWebService extends AsyncTask<String, String, Boolean> {
+		
+		@Override
+		protected Boolean doInBackground(String... args) {
+			ArrayList<NameValuePair> payload = new ArrayList<NameValuePair>();
+			payload.add(new BasicNameValuePair("log", args[1]));
+			
+			HttpURLConnection conn = null;
+			try{
+				UrlEncodedFormEntity formEntity = new UrlEncodedFormEntity(payload, "UTF-8");
+
+				conn = (HttpURLConnection) (new URL(args[0])).openConnection();
+				conn.setDoOutput(true);
+				conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+				
+				formEntity.writeTo(conn.getOutputStream());
+				
+				int status = conn.getResponseCode();
+				
+				if(status == HttpURLConnection.HTTP_OK){
+					Debug.log("send OK");
+					Debug.log("response: " + getHttpResponse(conn.getInputStream()));
+				}else{
+					Debug.log("send ERR. status: " + status + " " + conn.getResponseMessage());
+					Debug.log("err: " + getHttpResponse(conn.getErrorStream()));
+				}
+			}catch(Exception e){
+				Debug.log("Exception: " + Debug.stack(e));
+			}finally{
+			    if(conn != null)
+			        conn.disconnect();
+			}
+			
+			return null;
+		}
+
+		private String getHttpResponse(InputStream inputStream) throws IOException  {
+			InputStreamReader streamReader = null;
+			BufferedReader bufferedReader = null;
+			char[] buf = new char[1024];
+			StringBuilder sb = new StringBuilder();
+			
+			try{
+				streamReader = new InputStreamReader(inputStream, "UTF-8");
+				bufferedReader = new BufferedReader(streamReader, 1024);
+				int len = 0;
+				while((len = bufferedReader.read(buf)) != -1){
+				    sb.append(buf, 0, len);
+				}
+			}catch(Exception e){
+				Debug.log(Debug.stack(e));
+			}finally{
+				if(bufferedReader != null)
+					bufferedReader.close();
+				if(streamReader != null)
+					streamReader.close();
+			}
+			
+			return sb.toString();
+		}
+
+	}
 
 	private void initDuo() {
 		for(int i = 0; i < SIM_CNT; i++){
 	        mCurrInfo[i] = new Info(i);
 		}
-	}
-
-	@Override
-    public void onCreate() {
-		super.onCreate();
-		
-		LocalBroadcastManager.getInstance(this).
-			registerReceiver(mBR, new IntentFilter(getString(R.string.gsmserviceclient)));
-		
-        try{
-	        startAllListeners();
-        }catch(Exception e){
-        	Debug.log("create " + Debug.stack(e));
-        }
-	}
-
-	@Override
-	public void onDestroy() {
-		stopListening();
-		super.onDestroy();
 	}
 
 	private static int getSignalLevelProgress(int level) {
@@ -100,7 +203,10 @@ public class GSMservice extends Service
 
 	private void setGpsInfo(Location location) {
 		for(int i = 0; i < SIM_CNT; i++){
-			mCurrInfo[i].setGps(location);
+			if(location == null)
+				mCurrInfo[i].resetGps();
+			else
+				mCurrInfo[i].setGps(location);
 		}
 	}
 
@@ -139,7 +245,7 @@ public class GSMservice extends Service
 			Info last, curr;
 
 			curr = mCurrInfo[i];
-			last = new Info(curr.getSlot());
+			last = new Info(curr.getSlot() - 1);
 
 			last.setOperator(curr.getOperator());
 			last.setOpercode(curr.getOpercode());
@@ -211,18 +317,20 @@ public class GSMservice extends Service
 		}catch(Exception e){
 			Debug.log("write " + Debug.stack(e));
 		}
+		
 		if(isInternet(getApplicationContext())){
 			JSONArray jsonArr = new JSONArray();
 			try{
 				for(int i = 0; i < LOG_SIZE; i++){
-					jsonArr.put(i, mLogBuff[i]);
+					jsonArr.put(i, mLogBuff[i].toJson());
 				}
 			}catch(Exception e){
 				Debug.log(Debug.stack(e));
 			}
 			Debug.log(jsonArr.toString());
-			new loggerWebService().execute(new String[] {mUrl, jsonArr.toString()});
+			new loggerWebService().execute(new String[] {mLoggerUrl, jsonArr.toString()});
 		}
+		
 		mLogFill = 0;
 	}
 	
@@ -240,33 +348,6 @@ public class GSMservice extends Service
 		return false;
 	}
 	
-	public class loggerWebService extends AsyncTask<String, String, Boolean> {
-		
-		public loggerWebService() {}
-
-		@Override
-		protected Boolean doInBackground(String... args) {
-			ArrayList<NameValuePair> payload = new ArrayList<NameValuePair>();
-			payload.add(new BasicNameValuePair("log", args[1]));
-			HttpPost req = new HttpPost(args[0]);
-			HttpParams params = new BasicHttpParams();
-			HttpClient client = new DefaultHttpClient(params);
-			try{
-				req.setEntity(new UrlEncodedFormEntity(payload));
-				HttpResponse res;
-				res = client.execute(req);
-				StatusLine status = res.getStatusLine();
-				if(status.getStatusCode() == HttpStatus.SC_OK){
-					
-				}
-			}catch(Exception e){
-				Debug.log(Debug.stack(e));
-			}
-			return null;
-		}
-		
-	}
-
 	private static String getLog(Info info) {
 		StringBuilder sb = new StringBuilder();
 		String sep = ",";
@@ -349,54 +430,33 @@ public class GSMservice extends Service
 		);
 	}
 
-	private final PhoneStateListener mPhoneStateListener0 = new PhoneStateListener() {
+	public static int getSIM_CNT() {
+		return SIM_CNT;
+	}
 
-		@Override
-		public void onSignalStrengthsChanged(SignalStrength signalStrength) {
-			synchronized(mInfoLock){
-				mCurrInfo[0].setLevel(signalStrength.getGsmSignalStrength());
-			}
-			super.onSignalStrengthsChanged(signalStrength);
-		}
+	@Override
+    public void onCreate() {
+		super.onCreate();
+		
+		LocalBroadcastManager.getInstance(this).
+			registerReceiver(mBR, new IntentFilter(getString(R.string.gsmserviceclient)));
+		
+        try{
+	        startAllListeners();
+        }catch(Exception e){
+        	Debug.log("create " + Debug.stack(e));
+        }
+	}
 
-	};
+	@Override
+	public void onDestroy() {
+		stopListening();
+		super.onDestroy();
+	}
 
-	private final PhoneStateListener mPhoneStateListener1 = new PhoneStateListener() {
-
-		@Override
-		public void onSignalStrengthsChanged(SignalStrength signalStrength) {
-			synchronized(mInfoLock){
-				mCurrInfo[1].setLevel(signalStrength.getGsmSignalStrength());
-			}
-			super.onSignalStrengthsChanged(signalStrength);
-		}
-
-	};
-
-	private final LocationListener mGpsLocationListener = new LocationListener() {
-
-		@Override
-		public void onLocationChanged(Location location) {
-			synchronized(mInfoLock){
-				setGpsInfo(location);
-			}
-		}
-
-		@Override
-		public void onProviderEnabled(String provider) {}
-
-		@Override
-		public void onProviderDisabled(String provider) {
-			synchronized(mInfoLock){
-				for(int i = 0; i < SIM_CNT; i++){
-					mCurrInfo[i].resetGps();
-				}
-			}
-		}
-
-		@Override
-		public void onStatusChanged(String provider, int status, Bundle extras) {}
-
-	};
+	@Override
+	public IBinder onBind(Intent intent) {
+		return null;
+	}
 
 }

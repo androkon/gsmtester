@@ -1,15 +1,21 @@
 package ru.konsoft.gsmtester;
 
-import android.location.*;
-import java.io.*;
+import java.io.Serializable;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import android.location.Location;
 
 public class Info implements Serializable {
+
+	private static final long serialVersionUID = 1L;
 
 	private long mTime;
 	
 	private double mLat;
 	private double mLon;
-	private double mAcc;
+	private float mAcc;
 	private float mSpeed;
 
 	private int mSlot;
@@ -36,114 +42,146 @@ public class Info implements Serializable {
 		return mTime;
 	}
 
-	public void setTime(long time) {
-		this.mTime = time;
-	}
-
 	public int getSlot() {
 		return mSlot;
-	}
-
-	public void setSlot(int slot) {
-		this.mSlot = slot;
 	}
 
 	public int getLevel() {
 		return mLevel;
 	}
 
-	public void setLevel(int level) {
-		this.mLevel = level;
-	}
-
 	public int getProgress() {
 		return mProgress;
-	}
-
-	public void setProgress(int progress) {
-		this.mProgress = progress;
 	}
 
 	public int getNettype() {
 		return mNettype;
 	}
 
-	public void setNettype(int nettype) {
-		this.mNettype = nettype;
-	}
-
 	public String getOperator() {
 		return mOperator;
-	}
-
-	public void setOperator(String operator) {
-		this.mOperator = operator;
 	}
 
 	public int getOpercode() {
 		return mOpercode;
 	}
 
-	public void setOpercode(int opercode) {
-		this.mOpercode = opercode;
-	}
-
 	public int getLAC() {
 		return mLAC;
-	}
-
-	public void setLAC(int lac) {
-		this.mLAC = lac;
 	}
 
 	public int getCID() {
 		return mCID;
 	}
 
-	public void setCID(int cid) {
-		this.mCID = cid;
-	}
-
 	public int getDatastate() {
 		return mDatastate;
-	}
-
-	public void setDatastate(int datastate) {
-		this.mDatastate = datastate;
 	}
 
 	public long getRX() {
 		return mRX;
 	}
 
-	public void setRX(long rx) {
-		this.mRX = rx;
-	}
-
 	public long getTX() {
 		return mTX;
-	}
-
-	public void setTX(long tx) {
-		this.mTX = tx;
 	}
 
 	public int getSpeedRX() {
 		return mSpeedRX;
 	}
 
-	public void setSpeedRX(int srx) {
-		this.mSpeedRX = srx;
-	}
-
 	public int getSpeedTX() {
 		return mSpeedTX;
+	}
+
+	public double getLat() {
+		return mLat;
+	}
+
+	public double getLon() {
+		return mLon;
+	}
+
+	public float getAcc() {
+		return mAcc;
+	}
+
+	public float getSpeed() {
+		return mSpeed;
+	}
+
+	public void setTime(long time) {
+		this.mTime = time;
+	}
+
+	public void setSlot(int slot) {
+		this.mSlot = slot;
+	}
+
+	public void setLevel(int level) {
+		this.mLevel = level;
+	}
+
+	public void setProgress(int progress) {
+		this.mProgress = progress;
+	}
+
+	public void setNettype(int nettype) {
+		this.mNettype = nettype;
+	}
+
+	public void setOperator(String operator) {
+		this.mOperator = operator;
+	}
+
+	public void setOpercode(int opercode) {
+		this.mOpercode = opercode;
+	}
+
+	public void setLAC(int lac) {
+		this.mLAC = lac;
+	}
+
+	public void setCID(int cid) {
+		this.mCID = cid;
+	}
+
+	public void setDatastate(int datastate) {
+		this.mDatastate = datastate;
+	}
+
+	public void setRX(long rx) {
+		this.mRX = rx;
+	}
+
+	public void setTX(long tx) {
+		this.mTX = tx;
+	}
+
+	public void setSpeedRX(int srx) {
+		this.mSpeedRX = srx;
 	}
 
 	public void setSpeedTX(int stx) {
 		this.mSpeedTX = stx;
 	}
 	
+	public void setLat(double lat) {
+		this.mLat = lat;
+	}
+
+	public void setLon(double lon) {
+		this.mLon = lon;
+	}
+
+	public void setAcc(float acc) {
+		this.mAcc = acc;
+	}
+
+	public void setSpeed(float speed) {
+		this.mSpeed = speed;
+	}
+
 	public void resetGsm() {
 		mOpercode = 0;
 		mOperator = "no name";
@@ -158,8 +196,8 @@ public class Info implements Serializable {
 	public void resetGps() {
 		mLat = 0.0;
 		mLon = 0.0;
-		mAcc = 0.0;
-		mSpeed = 0;
+		mAcc = (float) 0.0;
+		mSpeed = (float) 0.0;
 	}
 	
 	public void setGps(Location loc) {
@@ -169,35 +207,30 @@ public class Info implements Serializable {
 		mSpeed = loc.getSpeed();
 	}
 
-	public double getLat() {
-		return mLat;
+	/**
+	* Сохранить объект в jsоn
+	* @throws JSONException 
+	*/
+	public JSONObject toJson() throws JSONException {
+		JSONObject jsonObj = new JSONObject();
+		
+		jsonObj.put("time", getTime());
+		jsonObj.put("slot", getSlot());
+		jsonObj.put("level", getLevel());
+		jsonObj.put("progress", getProgress());
+		jsonObj.put("nettype", getNettype());
+		jsonObj.put("operator", getOperator());
+		jsonObj.put("LAC", getLAC());
+		jsonObj.put("CID", getCID());
+		jsonObj.put("datastate", getDatastate());
+		jsonObj.put("speedRX", getSpeedRX());
+		jsonObj.put("speedTX", getSpeedTX());
+		jsonObj.put("latitude", getLat());
+		jsonObj.put("longitude", getLon());
+		jsonObj.put("gpsAccuracy", getAcc());
+		jsonObj.put("gpsSpeed", getSpeed());
+		
+		return jsonObj;
 	}
 
-	public void setLat(double lat) {
-		this.mLat = lat;
-	}
-
-	public double getLon() {
-		return mLon;
-	}
-
-	public void setLon(double lon) {
-		this.mLon = lon;
-	}
-
-	public double getAcc() {
-		return mAcc;
-	}
-
-	public void setAcc(double acc) {
-		this.mAcc = acc;
-	}
-
-	public float getSpeed() {
-		return mSpeed;
-	}
-
-	public void setSpeed(float speed) {
-		this.mSpeed = speed;
-	}
 }

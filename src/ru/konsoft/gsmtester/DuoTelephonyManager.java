@@ -1,9 +1,13 @@
 package ru.konsoft.gsmtester;
 
-import android.telephony.*;
-import java.lang.reflect.*;
+import java.lang.reflect.Method;
+
+import android.telephony.CellLocation;
+import android.telephony.PhoneStateListener;
+import android.telephony.TelephonyManager;
 
 public class DuoTelephonyManager {
+	
 	private TelephonyManager mStdTelephonyManager;
 	
 	private Method[] mMethods = new Method[6];
@@ -18,10 +22,16 @@ public class DuoTelephonyManager {
 	
 	private boolean mDuoReady = false;
 	
+	/**
+	* Release constructor
+	*/
 	public DuoTelephonyManager(TelephonyManager telephonyManager) {
 		initDuoTelephonyManager(telephonyManager);
 	}
 
+	/**
+	* Debug constructor
+	*/
 	public DuoTelephonyManager(TelephonyManager telephonyManager, GSMinfo activiti) {
 		initDuoTelephonyManager(telephonyManager);
 		
@@ -73,6 +83,14 @@ public class DuoTelephonyManager {
 		}catch(Exception e){
 			Debug.log(Debug.stack(e));
 		}
+	}
+
+	public boolean isDuoReady() {
+		return mDuoReady;
+	}
+
+	public TelephonyManager getStdTelephonyManager() {
+		return mStdTelephonyManager;
 	}
 
 	public String getNetworkOperatorName(int sim) {
@@ -159,14 +177,6 @@ public class DuoTelephonyManager {
 		}catch(Exception e){
 			Debug.log(Debug.stack(e));
 		}
-	}
-
-	public boolean isDuoReady() {
-		return mDuoReady;
-	}
-
-	public TelephonyManager getStdTelephonyManager() {
-		return mStdTelephonyManager;
 	}
 
 }

@@ -3,6 +3,7 @@ package ru.konsoft.gsmtester;
 import android.util.Log;
 
 public class Debug {
+	
 	private static final String LOG_TAG = "qwer";
 	
 	public static String stack(Exception e) {
@@ -23,4 +24,5 @@ public class Debug {
 	public static void log(String msg) {
 		Log.e(LOG_TAG, msg);
 	}
+
 }

@@ -1,81 +1,46 @@
 package ru.konsoft.gsmtester;
 
-import android.app.*;
-import android.content.*;
-import android.os.*;
-import android.support.v4.content.*;
-import android.telephony.*;
-import android.view.*;
-import android.widget.*;
+import android.app.Activity;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.os.Bundle;
+import android.support.v4.content.LocalBroadcastManager;
+import android.telephony.TelephonyManager;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+import android.widget.ToggleButton;
 
 public class GSMinfo extends Activity {
-	
+
+	private Info[] mLastInfo;
+
 	private BroadcastReceiver mBR = new BroadcastReceiver() {
 
 		@Override
 		public void onReceive(Context context, Intent intent) {
 			mLastInfo = (Info[])intent.getSerializableExtra(getString(R.string.gsmservice_info));
-			displayGsmInfo();
-			displayGpsInfo();
+			displayGsmInfo(mLastInfo);
+			displayGpsInfo(mLastInfo[0]);
 		}
 		
 	};
 	
-	private Info[] mLastInfo;
-	
-	@Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_gsminfo);
-		
-        try{
-	        startGSMservice();
-        }catch(Exception e){
-        	debugScreen("create " + Debug.stack(e));
-        }
-		Debug.log("create");
-	}
-
-	@Override
-	protected void onStart() {
-		super.onStart();
-		Debug.log("start");
-	}
-
-	@Override
-	protected void onStop() {
-		super.onStop();
-		Debug.log("stop");
-	}
-	
-	@Override
-	protected void onPause() {
-		LocalBroadcastManager.getInstance(this).unregisterReceiver(mBR);
-		super.onPause();
-		Debug.log("pause");
-	}
-
-	@Override
-	protected void onResume() {
+	private void regReceiver() {
 		LocalBroadcastManager.getInstance(this).
-			registerReceiver(mBR, new IntentFilter(getString(R.string.gsmserviceserver)));
-		super.onResume();
-		Debug.log("resume");
+		registerReceiver(mBR, new IntentFilter(getString(R.string.gsmserviceserver)));
 	}
-	
-	@Override
-	protected void onDestroy() {
-		stopGSMservice();
-		super.onDestroy();
-		Debug.log("destroy");
+
+	private void unregReceiver() {
+		LocalBroadcastManager.getInstance(this).unregisterReceiver(mBR);
 	}
 	
 	private void setTextViewText(int id, String text) {
 		((TextView) findViewById(id)).setText(text);
-	}
-	
-	private String getStringResource(int id) {
-		return getString(id);
 	}
 	
 	private static String getGsmTextInfo(Info info) {
@@ -99,9 +64,9 @@ public class GSMinfo extends Activity {
 		return sb.toString();
 	}
 	
-	private void displayGsmInfo() {
+	private void displayGsmInfo(Info[] gsmInfo) {
 		for(int i = 0; i < GSMservice.getSIM_CNT(); i++){
-			Info info = mLastInfo[i];
+			Info info = gsmInfo[i];
 			int signalLevel, deviceInfo, simNameId;
 			String simName;
 			
@@ -109,12 +74,12 @@ public class GSMinfo extends Activity {
 				signalLevel = R.id.signalLevel0;
 				deviceInfo = R.id.device_info0;
 				simNameId = R.id.sim_name0;
-				simName = getStringResource(R.string.text_sim_name0);
+				simName = getString(R.string.text_sim_name0);
 			}else{
 				signalLevel = R.id.signalLevel1;
 				deviceInfo = R.id.device_info1;
 				simNameId = R.id.sim_name1;
-				simName = getStringResource(R.string.text_sim_name1);
+				simName = getString(R.string.text_sim_name1);
 			}
 			
 			StringBuilder sb = new StringBuilder();
@@ -126,8 +91,7 @@ public class GSMinfo extends Activity {
 		}
 	}
 	
-	private void displayGpsInfo() {
-		Info info = mLastInfo[0];
+	private void displayGpsInfo(Info info) {
 		
 		if(info.getLat() != 0.0 && info.getLon() != 0.0){
 			StringBuilder sb = new StringBuilder();
@@ -177,8 +141,54 @@ public class GSMinfo extends Activity {
 	}
 
 	@Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_gsminfo);
+		
+        try{
+	        startGSMservice();
+        }catch(Exception e){
+        	debugScreen("create " + Debug.stack(e));
+        }
+		//Debug.log("create");
+	}
+
+	@Override
+	protected void onStart() {
+		super.onStart();
+		//Debug.log("start");
+	}
+
+	@Override
+	protected void onStop() {
+		super.onStop();
+		//Debug.log("stop");
+	}
+	
+	@Override
+	protected void onPause() {
+		unregReceiver();
+		super.onPause();
+		//Debug.log("pause");
+	}
+
+	@Override
+	protected void onResume() {
+		regReceiver();
+		super.onResume();
+		//Debug.log("resume");
+	}
+	
+	@Override
+	protected void onDestroy() {
+		stopGSMservice();
+		super.onDestroy();
+		//Debug.log("destroy");
+	}
+	
+	@Override
     public boolean onCreateOptionsMenu(Menu menu) {
-		Debug.log("create menu");
+		//Debug.log("create menu");
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.gsminfo, menu);
         return true;
@@ -186,7 +196,7 @@ public class GSMinfo extends Activity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-		Debug.log("select menu");
+		//Debug.log("select menu");
         // Handle action bar item clicks here. The action bar will
         // automatically handle clicks on the Home/Up button, so long
         // as you specify a parent activity in AndroidManifest.xml.
@@ -203,8 +213,10 @@ public class GSMinfo extends Activity {
     
 	public void onToggleEmulate(View view) {
 		boolean on = ((ToggleButton) view).isChecked();
+		
 		Intent intent = new Intent(getString(R.string.gsmserviceclient));
 		intent.putExtra(getString(R.string.gsmservice_emulate_gps), on);
+		
 		LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
 	}
     
