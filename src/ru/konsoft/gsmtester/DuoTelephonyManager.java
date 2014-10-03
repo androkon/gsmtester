@@ -1,10 +1,7 @@
 package ru.konsoft.gsmtester;
 
-import java.lang.reflect.Method;
-
-import android.telephony.CellLocation;
-import android.telephony.PhoneStateListener;
-import android.telephony.TelephonyManager;
+import android.telephony.*;
+import java.lang.reflect.*;
 
 public class DuoTelephonyManager {
 	private TelephonyManager mStdTelephonyManager;

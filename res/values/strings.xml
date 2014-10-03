@@ -7,6 +7,9 @@
     <string name="action_settings">Settings</string>
     <string name="signal_level">Signal Level</string>
     <string name="action_exit">Exit</string>
-    <string name="emulate_gps">emulate_gps</string>
+	<string name="gsmserviceserver">ru.konsoft.gsmservice.server</string>
+	<string name="gsmservice_info">info</string>
+	<string name="gsmserviceclient">ru.konsoft.gsmservice.client</string>
+	<string name="gsmservice_emulate_gps">ru.konsoft.gsmservice.emulategps</string>
     
 </resources>

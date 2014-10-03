@@ -1,8 +1,9 @@
 package ru.konsoft.gsmtester;
 
-import android.location.Location;
+import android.location.*;
+import java.io.*;
 
-public class Info {
+public class Info implements Serializable {
 
 	private long mTime;
 	
