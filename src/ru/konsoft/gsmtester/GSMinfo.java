@@ -1,5 +1,8 @@
 package ru.konsoft.gsmtester;
 
+import ru.yandex.yandexmapkit.MapController;
+import ru.yandex.yandexmapkit.MapView;
+import ru.yandex.yandexmapkit.utils.GeoPoint;
 import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -18,6 +21,9 @@ import android.widget.ToggleButton;
 public class GSMinfo extends Activity {
 
 	private Info[] mLastInfo;
+	
+	private MapView mMapView;
+	private MapController mMapController;
 
 	private BroadcastReceiver mBR = new BroadcastReceiver() {
 
@@ -145,6 +151,11 @@ public class GSMinfo extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_gsminfo);
 		
+          mMapView = (MapView) findViewById(R.id.map);
+//        mMapController = mMapView.getMapController();
+//        mMapController.setPositionAnimationTo(new GeoPoint(60.113337, 55.151317));
+//        mMapController.setZoomCurrent(15);
+        
         try{
 	        startGSMservice();
         }catch(Exception e){

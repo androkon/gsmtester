@@ -10,7 +10,7 @@
     android:paddingTop="@dimen/activity_vertical_margin"
     android:scrollbarAlwaysDrawVerticalTrack="false"
     android:scrollbarStyle="insideOverlay"
-    tools:context="ru.konsoft.gsmtester.GSMinfo" >
+    tools:context=".GSMinfo" >
 
     <LinearLayout
         android:layout_width="fill_parent"
@@ -102,6 +102,11 @@
                 style="@style/textSmallStyle" />
 
         </LinearLayout>
+        <ru.yandex.yandexmapkit.MapView
+	        android:id="@+id/map"
+	        android:layout_width="fill_parent"
+	        android:layout_height="fill_parent"
+	        android:apiKey="1234567890" />
     </LinearLayout>
 
 </ScrollView>
