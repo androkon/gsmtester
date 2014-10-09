@@ -41,6 +41,7 @@ import android.telephony.PhoneStateListener;
 import android.telephony.SignalStrength;
 import android.telephony.TelephonyManager;
 import android.telephony.gsm.GsmCellLocation;
+import java.util.zip.*;
 
 public class GSMservice extends Service {
 	
@@ -128,18 +129,17 @@ public class GSMservice extends Service {
 		
 		@Override
 		protected Boolean doInBackground(String... args) {
-			ArrayList<NameValuePair> payload = new ArrayList<NameValuePair>();
-			payload.add(new BasicNameValuePair("log", args[1]));
-			
 			HttpURLConnection conn = null;
 			try{
-				UrlEncodedFormEntity formEntity = new UrlEncodedFormEntity(payload, "UTF-8");
-
 				conn = (HttpURLConnection) (new URL(args[0])).openConnection();
 				conn.setDoOutput(true);
-				conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+				conn.setRequestProperty("Content-encoding", "gzip");
+				conn.setRequestProperty("Content-type", "application/octet-stream");
 				
-				formEntity.writeTo(conn.getOutputStream());
+				GZIPOutputStream gz = new GZIPOutputStream(conn.getOutputStream());
+				gz.write(args[1].getBytes());
+				gz.flush();
+				gz.close();
 				
 				int status = conn.getResponseCode();
 				
@@ -327,7 +327,7 @@ public class GSMservice extends Service {
 			}catch(Exception e){
 				Debug.log(Debug.stack(e));
 			}
-			Debug.log(jsonArr.toString());
+			//Debug.log(jsonArr.toString());
 			new loggerWebService().execute(new String[] {mLoggerUrl, jsonArr.toString()});
 		}
 		
