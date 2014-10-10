@@ -2,28 +2,38 @@ package ru.konsoft.gsmtester;
 
 import ru.yandex.yandexmapkit.MapController;
 import ru.yandex.yandexmapkit.MapView;
+import ru.yandex.yandexmapkit.OverlayManager;
+import ru.yandex.yandexmapkit.overlay.Overlay;
+import ru.yandex.yandexmapkit.overlay.OverlayItem;
 import ru.yandex.yandexmapkit.utils.GeoPoint;
 import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.Resources;
 import android.os.Bundle;
 import android.support.v4.content.LocalBroadcastManager;
 import android.telephony.TelephonyManager;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.ToggleButton;
+import android.widget.ViewFlipper;
 
 public class GSMinfo extends Activity {
 
 	private Info[] mLastInfo;
 	
+    private ViewFlipper flipper = null;
+	
 	private MapView mMapView;
 	private MapController mMapController;
+	private OverlayManager mOverlayManager;
+    private Overlay mOverlay;
 
 	private BroadcastReceiver mBR = new BroadcastReceiver() {
 
@@ -53,19 +63,24 @@ public class GSMinfo extends Activity {
 		StringBuilder sb = new StringBuilder();
 		String sep = "\n";
 		
-		sb.append("Network Type: ").append(getNetworkTypeString(info.getNettype())).append(sep);
-		sb.append("Level: ").append(String.valueOf(info.getLevel())).append(sep);
-		sb.append("Progress: ").append(String.valueOf(info.getProgress())).append(sep);
-		sb.append("Slot: ").append(String.valueOf(info.getSlot())).append(sep);
-		sb.append("LAC: ").append(String.valueOf(info.getLAC())).append(sep);
-		sb.append("CID: ").append(String.valueOf(info.getCID())).append(sep);
-		sb.append("DataState: ").append(String.valueOf(info.getDatastate())).append(sep);
-		sb.append("Speed RX: ").append(String.valueOf(info.getSpeedRX())).append(" bytes/sec").append(sep);
-		sb.append("Speed TX: ").append(String.valueOf(info.getSpeedTX())).append(" bytes/sec").append(sep);
-		
-		sb.append(sep);
-		sb.append("RX: ").append(String.valueOf(info.getRX())).append(" bytes").append(sep);
-		sb.append("TX: ").append(String.valueOf(info.getTX())).append(" bytes").append(sep);
+		if(info.getOpercode() != 0){
+			sb
+				.append("Network Type: ").append(getNetworkTypeString(info.getNettype())).append(sep)
+				.append("Level: ").append(String.valueOf(info.getLevel())).append(sep)
+				.append("Progress: ").append(String.valueOf(info.getProgress())).append(sep)
+				.append("Slot: ").append(String.valueOf(info.getSlot())).append(sep)
+				.append("LAC: ").append(String.valueOf(info.getLAC())).append(sep)
+				.append("CID: ").append(String.valueOf(info.getCID()));
+			if(info.getDatastate() == TelephonyManager.DATA_CONNECTED){
+				sb
+					.append(sep)
+					.append("DataState: ").append(String.valueOf(info.getDatastate())).append(sep)
+					.append("Speed RX: ").append(String.valueOf(info.getSpeedRX())).append(" bytes/sec").append(sep)
+					.append("Speed TX: ").append(String.valueOf(info.getSpeedTX())).append(" bytes/sec").append(sep)
+					.append("RX: ").append(String.valueOf(info.getRX())).append(" bytes").append(sep)
+					.append("TX: ").append(String.valueOf(info.getTX())).append(" bytes");
+			}
+		}
 		
 		return sb.toString();
 	}
@@ -102,15 +117,26 @@ public class GSMinfo extends Activity {
 		if(info.getLat() != 0.0 && info.getLon() != 0.0){
 			StringBuilder sb = new StringBuilder();
 			
-			sb.append("lat: ").append(String.valueOf(info.getLat())).append("\n");
-			sb.append("lon: ").append(String.valueOf(info.getLon())).append("\n");
-			sb.append("acc: ").append(String.valueOf(info.getAcc())).append(" m\n");
-			sb.append("vel: ").append(String.valueOf(info.getSpeed())).append(" m/s");
+			sb
+				.append("lat: ").append(String.valueOf(info.getLat())).append("\n")
+				.append("lon: ").append(String.valueOf(info.getLon())).append("\n")
+				.append("acc: ").append(String.valueOf(info.getAcc())).append(" m\n")
+				.append("vel: ").append(String.valueOf(info.getSpeed())).append(" m/s");
 			setTextViewText(R.id.gps_info, sb.toString());
+
+	        GeoPoint geoPoint = new GeoPoint(info.getLat(), info.getLon());
+			mMapController.setPositionAnimationTo(geoPoint);
+	        showObject(geoPoint);
 		}else{
 			setTextViewText(R.id.gps_info, "No GPS");
 		}
 	}
+
+    public void showObject(GeoPoint geoPoint){
+        Resources res = getResources();
+        OverlayItem yandex = new OverlayItem(geoPoint, res.getDrawable(R.drawable.ymk_user_location_gps));
+        mOverlay.addOverlayItem(yandex);
+    }
 	
 	public void debugScreen(String text) {
 		setTextViewText(R.id.error_info, text);
@@ -147,14 +173,26 @@ public class GSMinfo extends Activity {
 	}
 
 	@Override
-    protected void onCreate(Bundle savedInstanceState) {
+    public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_gsminfo);
+        
+        flipper = (ViewFlipper) findViewById(R.id.flipper);
+        
+        LayoutInflater inflater = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+        int layouts[] = new int[]{R.layout.gsm, R.layout.ymap};
+        for(int layout : layouts){
+            flipper.addView(inflater.inflate(layout, null));
+        }
 		
         mMapView = (MapView) findViewById(R.id.map);
         mMapController = mMapView.getMapController();
-        mMapController.setPositionAnimationTo(new GeoPoint(60.113337, 55.151317));
-        mMapController.setZoomCurrent(15);
+        mMapController.setZoomCurrent(12);
+        mOverlayManager = mMapController.getOverlayManager();
+        mOverlayManager.getMyLocation().setEnabled(false);
+        mMapView.showBuiltInScreenButtons(true);
+        mOverlay = new Overlay(mMapController);
+        mOverlayManager.addOverlay(mOverlay);
         
         try{
 	        startGSMservice();
@@ -163,7 +201,7 @@ public class GSMinfo extends Activity {
         }
 		//Debug.log("create");
 	}
-
+	
 	@Override
 	protected void onStart() {
 		super.onStart();
@@ -217,6 +255,14 @@ public class GSMinfo extends Activity {
         }
         if (id == R.id.action_exit) {
         	finish();
+            return true;
+        }
+        if (id == R.id.action_gsm) {
+        	flipper.setDisplayedChild(flipper.indexOfChild(findViewById(R.id.view_gsm)));
+            return true;
+        }
+        if (id == R.id.action_ymap) {
+        	flipper.setDisplayedChild(flipper.indexOfChild(findViewById(R.id.view_ymap)));
             return true;
         }
         return super.onOptionsItemSelected(item);

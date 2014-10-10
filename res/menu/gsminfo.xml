@@ -3,6 +3,16 @@
     tools:context="ru.konsoft.gsmtester.GSMinfo" >
 
     <item
+        android:id="@+id/action_gsm"
+        android:orderInCategory="100"
+        android:title="@string/action_gsm"/>
+
+    <item
+        android:id="@+id/action_ymap"
+        android:orderInCategory="100"
+        android:title="@string/action_ymap"/>
+    
+    <item
         android:id="@+id/action_settings"
         android:orderInCategory="100"
         android:title="@string/action_settings"/>

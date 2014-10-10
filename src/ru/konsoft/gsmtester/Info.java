@@ -6,6 +6,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import android.location.Location;
+import android.telephony.TelephonyManager;
 
 public class Info implements Serializable {
 
@@ -214,21 +215,25 @@ public class Info implements Serializable {
 	public JSONObject toJson() throws JSONException {
 		JSONObject jsonObj = new JSONObject();
 		
-		jsonObj.put("time", getTime());
-		jsonObj.put("slot", getSlot());
-		jsonObj.put("level", getLevel());
-		jsonObj.put("progress", getProgress());
-		jsonObj.put("nettype", getNettype());
-		jsonObj.put("operator", getOperator());
-		jsonObj.put("LAC", getLAC());
-		jsonObj.put("CID", getCID());
-		jsonObj.put("datastate", getDatastate());
-		jsonObj.put("speedRX", getSpeedRX());
-		jsonObj.put("speedTX", getSpeedTX());
-		jsonObj.put("latitude", getLat());
-		jsonObj.put("longitude", getLon());
-		jsonObj.put("gpsAccuracy", getAcc());
-		jsonObj.put("gpsSpeed", getSpeed());
+		jsonObj
+			.put("time", mTime)
+			.put("slot", mSlot)
+			.put("level", mLevel)
+			.put("progress", mProgress)
+			.put("nettype", mNettype)
+			.put("operator", mOperator)
+			.put("LAC", mLAC)
+			.put("CID", mCID)
+			.put("latitude", mLat)
+			.put("longitude", mLon)
+			.put("gpsAccuracy", mAcc)
+			.put("gpsSpeed", mSpeed);
+		if(getDatastate() == TelephonyManager.DATA_CONNECTED){
+			jsonObj
+				.put("datastate", mDatastate)
+				.put("speedRX", mSpeedRX)
+				.put("speedTX", mSpeedTX);
+		}
 		
 		return jsonObj;
 	}

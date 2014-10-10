@@ -57,6 +57,7 @@ public class GSMservice extends Service {
 	private static final int GPS_UPDATE_INTERVAL = 1000; // millisec
 	private static final int GPS_UPDATE_DISTANCE = 2; // meter
 	private boolean mEmulateGps = false;
+	private Location mFakeLocation = new Location("gps");
 	
 	private final static int LOG_SIZE = 4;
 	private Info[] mLogBuff = new Info[LOG_SIZE];
@@ -68,6 +69,12 @@ public class GSMservice extends Service {
 		@Override
 		public void onReceive(Context context, Intent intent) {
 			mEmulateGps = intent.getBooleanExtra(getString(R.string.gsmservice_emulate_gps), false);
+			if(mEmulateGps){
+				mFakeLocation.setLatitude(55.70);
+				mFakeLocation.setLongitude(37.62);
+				mFakeLocation.setAccuracy(10);
+				setGpsInfo(mFakeLocation);
+			}
 			//Debug.log("emulate gps: " + mEmulateGps);
 		}
 
@@ -186,6 +193,7 @@ public class GSMservice extends Service {
 	private void initDuo() {
 		for(int i = 0; i < SIM_CNT; i++){
 	        mCurrInfo[i] = new Info(i);
+	        mLastInfo[i] = new Info(i);
 		}
 	}
 
@@ -234,13 +242,20 @@ public class GSMservice extends Service {
 
 			info.setTime(time);
 		}
+		if(mEmulateGps){
+			mFakeLocation.setLatitude(mFakeLocation.getLatitude() + 0.01);
+			mFakeLocation.setLongitude(mFakeLocation.getLongitude() + 0.01);
+			setGpsInfo(mFakeLocation);
+		}
 	}
 
 	private void swapInfo() {
 		for(int i = 0; i < SIM_CNT; i++){
-			Info last, curr;
+			Info last, curr, prev;
 
 			curr = mCurrInfo[i];
+			prev = mLastInfo[i];
+			
 			last = new Info(curr.getSlot() - 1);
 
 			last.setOperator(curr.getOperator());
@@ -252,8 +267,8 @@ public class GSMservice extends Service {
 			last.setLAC(curr.getLAC());
 			last.setDatastate(curr.getDatastate());
 
-			last.setSpeedRX((int)((curr.getRX() - last.getRX()) * 1000.0 / (curr.getTime() - last.getTime())));
-			last.setSpeedTX((int)((curr.getTX() - last.getTX()) * 1000.0 / (curr.getTime() - last.getTime())));
+			last.setSpeedRX((int)((curr.getRX() - prev.getRX()) * 1000.0 / (curr.getTime() - prev.getTime())));
+			last.setSpeedTX((int)((curr.getTX() - prev.getTX()) * 1000.0 / (curr.getTime() - prev.getTime())));
 
 			last.setRX(curr.getRX());
 			last.setTX(curr.getTX());
@@ -286,18 +301,30 @@ public class GSMservice extends Service {
 			mLastInfo[0].getLat() != 0.0 &&
 			mLastInfo[0].getLon() != 0.0 &&
 			mLastInfo[0].getAcc() < 50.0
-			|| mEmulateGps
-			)
+		)
 			return true;
 		else
 			return false;
 	}
 
 	private void addToStorage() {
+		if(! mEmulateGps){
+			try{
+				saveLocalFile();
+			}catch(Exception e){
+				Debug.log(Debug.stack(e));
+			}
+			sendToRemoteServer();
+		}
+
+		mLogFill = 0;
+	}
+	
+	private void saveLocalFile() throws IOException {
+		FileWriter file = null;
 		// create new daily log file with append
 		try{
 			File dir = getExternalFilesDir(null);
-			FileWriter file;
 			String fname = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(System.currentTimeMillis())) + ".log";
 
 			file = new FileWriter(new File(dir, fname), true);
@@ -309,25 +336,29 @@ public class GSMservice extends Service {
 				}
 			}
 			file.flush();
-			file.close();
 		}catch(Exception e){
 			Debug.log("write " + Debug.stack(e));
+		}finally{
+			if(file != null)
+				file.close();
 		}
-		
+	}
+	
+	private void sendToRemoteServer() {
 		if(isInternet(getApplicationContext())){
 			JSONArray jsonArr = new JSONArray();
 			try{
 				for(int i = 0; i < LOG_SIZE; i++){
-					jsonArr.put(i, mLogBuff[i].toJson());
+					Info info = mLogBuff[i];
+					if(info.getOpercode() != 0){
+						jsonArr.put(info.toJson());
+					}
 				}
+				new loggerWebService().execute(new String[] {mLoggerUrl, jsonArr.toString()});
 			}catch(Exception e){
 				Debug.log(Debug.stack(e));
 			}
-			//Debug.log(jsonArr.toString());
-			new loggerWebService().execute(new String[] {mLoggerUrl, jsonArr.toString()});
 		}
-		
-		mLogFill = 0;
 	}
 	
 	private static boolean isInternet(Context context) {
@@ -349,22 +380,28 @@ public class GSMservice extends Service {
 		String sep = ",";
 		String eol = "\n";
 
-		sb.append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(new Date(info.getTime()))).append(sep);
-		sb.append(String.valueOf(info.getTime())).append(sep);
-		sb.append(String.valueOf(info.getLat())).append(sep);
-		sb.append(String.valueOf(info.getLon())).append(sep);
-		sb.append(String.valueOf(info.getAcc())).append(sep);
-		sb.append(String.valueOf(info.getSlot())).append(sep);
-		sb.append(info.getOperator()).append(sep);
-		sb.append(String.valueOf(info.getOpercode())).append(sep);
-		sb.append(String.valueOf(info.getNettype())).append(sep);
-		sb.append(String.valueOf(info.getLevel())).append(sep);
-		sb.append(String.valueOf(info.getProgress())).append(sep);
-		sb.append(String.valueOf(info.getCID())).append(sep);
-		sb.append(String.valueOf(info.getLAC())).append(sep);
-		sb.append(String.valueOf(info.getDatastate())).append(sep);
-		sb.append(String.valueOf(info.getSpeedRX())).append(sep);
-		sb.append(String.valueOf(info.getSpeedTX())).append(eol);
+		sb
+			.append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(new Date(info.getTime()))).append(sep)
+			.append(String.valueOf(info.getTime())).append(sep)
+			.append(String.valueOf(info.getLat())).append(sep)
+			.append(String.valueOf(info.getLon())).append(sep)
+			.append(String.valueOf(info.getAcc())).append(sep)
+			.append(String.valueOf(info.getSlot())).append(sep)
+			.append(info.getOperator()).append(sep)
+			.append(String.valueOf(info.getOpercode())).append(sep)
+			.append(String.valueOf(info.getNettype())).append(sep)
+			.append(String.valueOf(info.getLevel())).append(sep)
+			.append(String.valueOf(info.getProgress())).append(sep)
+			.append(String.valueOf(info.getCID())).append(sep)
+			.append(String.valueOf(info.getLAC()));
+		if(info.getDatastate() == TelephonyManager.DATA_CONNECTED){
+			sb
+				.append(sep)
+				.append(String.valueOf(info.getDatastate())).append(sep)
+				.append(String.valueOf(info.getSpeedRX())).append(sep)
+				.append(String.valueOf(info.getSpeedTX()));
+		}
+		sb.append(eol);
 
 		return sb.toString();
 	}
