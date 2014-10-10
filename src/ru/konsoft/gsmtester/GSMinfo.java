@@ -151,7 +151,7 @@ public class GSMinfo extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_gsminfo);
 		
-          mMapView = (MapView) findViewById(R.id.map);
+        mMapView = (MapView) findViewById(R.id.map);
         mMapController = mMapView.getMapController();
         mMapController.setPositionAnimationTo(new GeoPoint(60.113337, 55.151317));
         mMapController.setZoomCurrent(15);
