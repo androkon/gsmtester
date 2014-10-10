@@ -1,2 +1,4 @@
 bin/*
 gen/*
+yandexmapkit-library/bin/*
+yandexmapkit-library/gen/*
