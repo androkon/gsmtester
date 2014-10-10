@@ -152,9 +152,9 @@ public class GSMinfo extends Activity {
         setContentView(R.layout.activity_gsminfo);
 		
           mMapView = (MapView) findViewById(R.id.map);
-//        mMapController = mMapView.getMapController();
-//        mMapController.setPositionAnimationTo(new GeoPoint(60.113337, 55.151317));
-//        mMapController.setZoomCurrent(15);
+        mMapController = mMapView.getMapController();
+        mMapController.setPositionAnimationTo(new GeoPoint(60.113337, 55.151317));
+        mMapController.setZoomCurrent(15);
         
         try{
 	        startGSMservice();
