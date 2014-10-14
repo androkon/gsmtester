@@ -59,7 +59,7 @@ public class GSMservice extends Service {
 	private boolean mEmulateGps = false;
 	private Location mFakeLocation = new Location("gps");
 	
-	private final static int LOG_SIZE = 4;
+	private final static int LOG_SIZE = 120; // 1 minute
 	private Info[] mLogBuff = new Info[LOG_SIZE];
 	private int mLogFill = 0;
 	private static final String mLoggerUrl = "http://www.kadastr-ekz.ru/plugins/gsmlogger/logging.php";
@@ -354,7 +354,7 @@ public class GSMservice extends Service {
 						jsonArr.put(info.toJson());
 					}
 				}
-				new loggerWebService().execute(new String[] {mLoggerUrl, jsonArr.toString()});
+				//new loggerWebService().execute(new String[] {mLoggerUrl, jsonArr.toString()});
 			}catch(Exception e){
 				Debug.log(Debug.stack(e));
 			}
@@ -406,7 +406,7 @@ public class GSMservice extends Service {
 		return sb.toString();
 	}
 	
-	private void sendInfo() {
+	private void showInfo() {
 		Intent intent = new Intent(getString(R.string.gsmserviceserver));
 		intent.putExtra(getString(R.string.gsmservice_info), mLastInfo);
 		LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
@@ -454,8 +454,8 @@ public class GSMservice extends Service {
 									setGsmInfo();
 									swapInfo();
 								}
+								showInfo();
 								saveLog();
-								sendInfo();
 							}
 						});
 				}

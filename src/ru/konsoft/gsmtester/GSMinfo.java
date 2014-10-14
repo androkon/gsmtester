@@ -1,28 +1,19 @@
 package ru.konsoft.gsmtester;
 
-import ru.yandex.yandexmapkit.MapController;
-import ru.yandex.yandexmapkit.MapView;
-import ru.yandex.yandexmapkit.OverlayManager;
-import ru.yandex.yandexmapkit.overlay.Overlay;
-import ru.yandex.yandexmapkit.overlay.OverlayItem;
-import ru.yandex.yandexmapkit.utils.GeoPoint;
-import android.app.Activity;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.content.res.Resources;
-import android.os.Bundle;
-import android.support.v4.content.LocalBroadcastManager;
-import android.telephony.TelephonyManager;
-import android.view.LayoutInflater;
-import android.view.Menu;
-import android.view.MenuItem;
-import android.view.View;
-import android.widget.ProgressBar;
-import android.widget.TextView;
-import android.widget.ToggleButton;
-import android.widget.ViewFlipper;
+import android.app.*;
+import android.content.*;
+import android.content.res.*;
+import android.graphics.*;
+import android.graphics.drawable.*;
+import android.graphics.drawable.shapes.*;
+import android.os.*;
+import android.support.v4.content.*;
+import android.telephony.*;
+import android.view.*;
+import android.widget.*;
+import ru.yandex.yandexmapkit.*;
+import ru.yandex.yandexmapkit.overlay.*;
+import ru.yandex.yandexmapkit.utils.*;
 
 public class GSMinfo extends Activity {
 
@@ -125,7 +116,7 @@ public class GSMinfo extends Activity {
 			setTextViewText(R.id.gps_info, sb.toString());
 
 	        GeoPoint geoPoint = new GeoPoint(info.getLat(), info.getLon());
-			mMapController.setPositionAnimationTo(geoPoint);
+			//mMapController.setPositionAnimationTo(geoPoint);
 	        showObject(geoPoint);
 		}else{
 			setTextViewText(R.id.gps_info, "No GPS");
@@ -134,8 +125,18 @@ public class GSMinfo extends Activity {
 
     public void showObject(GeoPoint geoPoint){
         Resources res = getResources();
-        OverlayItem yandex = new OverlayItem(geoPoint, res.getDrawable(R.drawable.ymk_user_location_gps));
-        mOverlay.addOverlayItem(yandex);
+		OvalShape s = new OvalShape();
+		//s.resize(10, 10);
+        ShapeDrawable o = new ShapeDrawable(s);
+		o.getPaint().setColor(0xff74ac23);
+		o.setBounds(0, 0, 10, 10);
+		Bitmap b = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888);
+		Canvas c = new Canvas(b);
+		//c.drawCircle(10, 10, 10, new Paint(10));
+		o.draw(c);
+		OverlayItem y = new OverlayItem(geoPoint, o);//res.getDrawable(R.drawable.ymk_user_location_gps));
+		//yandex.getDrawable()
+		mOverlay..addOverlayItem(y);
     }
 	
 	public void debugScreen(String text) {
