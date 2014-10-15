@@ -4,6 +4,7 @@ import android.app.*;
 import android.content.*;
 import android.content.res.*;
 import android.graphics.*;
+import android.graphics.Paint.Style;
 import android.graphics.drawable.*;
 import android.graphics.drawable.shapes.*;
 import android.os.*;
@@ -25,6 +26,7 @@ public class GSMinfo extends Activity {
 	private MapController mMapController;
 	private OverlayManager mOverlayManager;
     private Overlay mOverlay;
+    private MyOverlayIRender mRender;
 
 	private BroadcastReceiver mBR = new BroadcastReceiver() {
 
@@ -123,23 +125,59 @@ public class GSMinfo extends Activity {
 		}
 	}
 
-    public void showObject(GeoPoint geoPoint){
+    private void showObject(GeoPoint geoPoint){
         Resources res = getResources();
-		OvalShape s = new OvalShape();
-		//s.resize(10, 10);
-        ShapeDrawable o = new ShapeDrawable(s);
-		o.getPaint().setColor(0xff74ac23);
-		o.setBounds(0, 0, 10, 10);
-		Bitmap b = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888);
-		Canvas c = new Canvas(b);
-		//c.drawCircle(10, 10, 10, new Paint(10));
-		o.draw(c);
-		OverlayItem y = new OverlayItem(geoPoint, o);//res.getDrawable(R.drawable.ymk_user_location_gps));
-		//yandex.getDrawable()
-		mOverlay..addOverlayItem(y);
+        OverlayItem y;
+
+        ShapeDrawable o = new ShapeDrawable(new OvalShape());
+		o.getPaint().setColor(10);
+		o.setBounds(0, 0, 100, 100);
+		
+		ShapeDrawable drawable = new ShapeDrawable(new OvalShape());
+		drawable.getPaint().setColor(Color.GRAY);
+		drawable.getPaint().setStyle(Style.STROKE);
+		drawable.getPaint().setStrokeWidth(10);
+		drawable.getPaint().setAntiAlias(true);
+		drawable.setBounds(0, 0, 100, 100);
+
+//		Bitmap b = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
+//		Canvas c = new Canvas(b);
+//		
+//		o.draw(c);
+		
+//		BitmapDrawable d = (BitmapDrawable)res.getDrawable(R.drawable.ymk_user_location_gps);
+//		y = new OverlayItem(geoPoint, d);
+//		mOverlay.addOverlayItem(y);
+
+		y = new OverlayItem(geoPoint, drawableToBitmapDrawable(drawable));
+		mOverlay.addOverlayItem(y);
     }
-	
-	public void debugScreen(String text) {
+    
+    private BitmapDrawable drawableToBitmapDrawable (Drawable drawable) {
+        if(drawable instanceof BitmapDrawable){
+            return ((BitmapDrawable)drawable);
+        }
+
+        Bitmap bitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+        drawable.draw(canvas);
+
+        return new BitmapDrawable(getResources(), bitmap);
+    }
+    
+    public class MyOverlayIRender extends OverlayIRender {
+    	Overlay mOverlay;
+
+		@Override
+		public void draw(Canvas canvas, OverlayItem item) {
+			Drawable d = item.getDrawable();
+			d.draw(canvas);
+		}
+		
+    }
+    
+    public void debugScreen(String text) {
 		setTextViewText(R.id.error_info, text);
 	}
 		
@@ -188,12 +226,15 @@ public class GSMinfo extends Activity {
 		
         mMapView = (MapView) findViewById(R.id.map);
         mMapController = mMapView.getMapController();
-        mMapController.setZoomCurrent(12);
         mOverlayManager = mMapController.getOverlayManager();
-        mOverlayManager.getMyLocation().setEnabled(false);
-        mMapView.showBuiltInScreenButtons(true);
         mOverlay = new Overlay(mMapController);
         mOverlayManager.addOverlay(mOverlay);
+        
+        mMapController.setZoomCurrent(12);
+        mOverlayManager.getMyLocation().setEnabled(false);
+        mMapView.showJamsButton(false);
+        //mRender = new MyOverlayIRender(this);
+        //mOverlay.setIRender(mRender);
         
         try{
 	        startGSMservice();
