@@ -74,6 +74,8 @@ public class GSMservice extends Service {
 				mFakeLocation.setLongitude(37.62);
 				mFakeLocation.setAccuracy(10);
 				setGpsInfo(mFakeLocation);
+			}else{
+				setGpsInfo(null);
 			}
 			//Debug.log("emulate gps: " + mEmulateGps);
 		}
@@ -243,8 +245,8 @@ public class GSMservice extends Service {
 			info.setTime(time);
 		}
 		if(mEmulateGps){
-			mFakeLocation.setLatitude(mFakeLocation.getLatitude() + 0.01);
-			mFakeLocation.setLongitude(mFakeLocation.getLongitude() + 0.01);
+			mFakeLocation.setLatitude(mFakeLocation.getLatitude() + 0.001);
+			mFakeLocation.setLongitude(mFakeLocation.getLongitude() + 0.001);
 			setGpsInfo(mFakeLocation);
 		}
 	}
@@ -410,6 +412,7 @@ public class GSMservice extends Service {
 		Intent intent = new Intent(getString(R.string.gsmserviceserver));
 		intent.putExtra(getString(R.string.gsmservice_info), mLastInfo);
 		LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+		Debug.log("send");
 	}
 
 	private void stopListening() {

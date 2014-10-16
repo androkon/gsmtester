@@ -26,15 +26,15 @@ public class GSMinfo extends Activity {
 	private MapController mMapController;
 	private OverlayManager mOverlayManager;
     private Overlay mOverlay;
-    private MyOverlayIRender mRender;
 
 	private BroadcastReceiver mBR = new BroadcastReceiver() {
 
 		@Override
 		public void onReceive(Context context, Intent intent) {
+			Debug.log("receive");
 			mLastInfo = (Info[])intent.getSerializableExtra(getString(R.string.gsmservice_info));
 			displayGsmInfo(mLastInfo);
-			displayGpsInfo(mLastInfo[0]);
+			displayGpsInfo(mLastInfo);
 		}
 		
 	};
@@ -105,7 +105,8 @@ public class GSMinfo extends Activity {
 		}
 	}
 	
-	private void displayGpsInfo(Info info) {
+	private void displayGpsInfo(Info[] infoList) {
+		Info info = infoList[0];
 		
 		if(info.getLat() != 0.0 && info.getLon() != 0.0){
 			StringBuilder sb = new StringBuilder();
@@ -116,65 +117,56 @@ public class GSMinfo extends Activity {
 				.append("acc: ").append(String.valueOf(info.getAcc())).append(" m\n")
 				.append("vel: ").append(String.valueOf(info.getSpeed())).append(" m/s");
 			setTextViewText(R.id.gps_info, sb.toString());
-
-	        GeoPoint geoPoint = new GeoPoint(info.getLat(), info.getLon());
-			//mMapController.setPositionAnimationTo(geoPoint);
-	        showObject(geoPoint);
+			
+	        //mOverlay.clearOverlayItems();
+			//for(int i = 0; i < infoList.length; i++)
+			showPoint(info);
 		}else{
 			setTextViewText(R.id.gps_info, "No GPS");
 		}
 	}
 
-    private void showObject(GeoPoint geoPoint){
-        Resources res = getResources();
+    private void showPoint(Info info){
         OverlayItem y;
-
-        ShapeDrawable o = new ShapeDrawable(new OvalShape());
-		o.getPaint().setColor(10);
-		o.setBounds(0, 0, 100, 100);
+		GeoPoint geoPoint = new GeoPoint(info.getLat(), info.getLon());
 		
-		ShapeDrawable drawable = new ShapeDrawable(new OvalShape());
-		drawable.getPaint().setColor(Color.GRAY);
-		drawable.getPaint().setStyle(Style.STROKE);
-		drawable.getPaint().setStrokeWidth(10);
-		drawable.getPaint().setAntiAlias(true);
-		drawable.setBounds(0, 0, 100, 100);
-
-//		Bitmap b = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
-//		Canvas c = new Canvas(b);
-//		
-//		o.draw(c);
+		ShapeDrawable point = new ShapeDrawable(new OvalShape());
+		Paint paint = point.getPaint();
+		int ca = Color.parseColor("#BD4141");
+		int cb = Color.parseColor("#719D98");
+		paint.setColor(interpolateColor(ca, cb, info.getProgress() / 100f));
 		
-//		BitmapDrawable d = (BitmapDrawable)res.getDrawable(R.drawable.ymk_user_location_gps);
-//		y = new OverlayItem(geoPoint, d);
-//		mOverlay.addOverlayItem(y);
+		point.setBounds(0, 0, 20, 20);
 
-		y = new OverlayItem(geoPoint, drawableToBitmapDrawable(drawable));
+		y = new OverlayItem(geoPoint, drawableToBitmapDrawable(getResources(), point));
 		mOverlay.addOverlayItem(y);
-    }
-    
-    private BitmapDrawable drawableToBitmapDrawable (Drawable drawable) {
-        if(drawable instanceof BitmapDrawable){
-            return ((BitmapDrawable)drawable);
-        }
-
-        Bitmap bitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bitmap);
-        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
-        drawable.draw(canvas);
-
-        return new BitmapDrawable(getResources(), bitmap);
-    }
-    
-    public class MyOverlayIRender extends OverlayIRender {
-    	Overlay mOverlay;
-
-		@Override
-		public void draw(Canvas canvas, OverlayItem item) {
-			Drawable d = item.getDrawable();
-			d.draw(canvas);
-		}
 		
+		mMapController.setPositionAnimationTo(geoPoint);
+    }
+	
+	private static int interpolateColor(int a, int b, float p) {
+		float hsva[] = new float[3];
+		float hsvb[] = new float[3];
+		Color.colorToHSV(a, hsva);
+		Color.colorToHSV(b, hsvb);
+		for(int i = 0; i < 3; i++)
+			hsvb[i] = interpolate(hsva[i], hsvb[i], p);
+		return Color.HSVToColor(hsvb);
+	}
+	
+	private static float interpolate(float a, float b, float p) {
+		return (a + (b - a) * p);
+	}
+    
+    private static BitmapDrawable drawableToBitmapDrawable (Resources res, Drawable drawable) {
+        if(drawable instanceof BitmapDrawable)
+            return (BitmapDrawable)drawable;
+			
+		Rect rect = drawable.getBounds();
+        Bitmap bitmap = Bitmap.createBitmap(rect.width(), rect.height(), Bitmap.Config.ARGB_8888);
+        drawable.draw(new Canvas(bitmap));
+
+        return new BitmapDrawable(res, bitmap);
     }
     
     public void debugScreen(String text) {
@@ -233,48 +225,47 @@ public class GSMinfo extends Activity {
         mMapController.setZoomCurrent(12);
         mOverlayManager.getMyLocation().setEnabled(false);
         mMapView.showJamsButton(false);
-        //mRender = new MyOverlayIRender(this);
-        //mOverlay.setIRender(mRender);
         
         try{
 	        startGSMservice();
         }catch(Exception e){
         	debugScreen("create " + Debug.stack(e));
         }
-		//Debug.log("create");
+		Debug.log("create");
 	}
 	
 	@Override
 	protected void onStart() {
 		super.onStart();
-		//Debug.log("start");
+		//regReceiver();
+		Debug.log("start");
 	}
 
 	@Override
 	protected void onStop() {
 		super.onStop();
-		//Debug.log("stop");
+		Debug.log("stop");
 	}
 	
 	@Override
 	protected void onPause() {
 		unregReceiver();
 		super.onPause();
-		//Debug.log("pause");
+		Debug.log("pause");
 	}
 
 	@Override
 	protected void onResume() {
 		regReceiver();
 		super.onResume();
-		//Debug.log("resume");
+		Debug.log("resume");
 	}
 	
 	@Override
 	protected void onDestroy() {
 		stopGSMservice();
 		super.onDestroy();
-		//Debug.log("destroy");
+		Debug.log("destroy");
 	}
 	
 	@Override
