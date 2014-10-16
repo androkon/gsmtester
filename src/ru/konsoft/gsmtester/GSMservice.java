@@ -6,6 +6,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.Serializable;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.text.SimpleDateFormat;
@@ -43,26 +44,27 @@ public class GSMservice extends Service {
 	
 	private DuoTelephonyManager mDuoTM;
 
-	private static final int SIM_CNT = 2;
+	private final static int SIM_CNT = 2;
 	private Info[] mLastInfo = new Info[SIM_CNT];
 	private Info[] mCurrInfo = new Info[SIM_CNT];
 	private Object mInfoLock = new Object();
 
 	private Timer mTimer = new Timer();
 	private Handler mTimerHandler = new Handler();
-	private static final long TIMER_DELAY = 1000; // millisec
-	private static final long TIMER_INTERVAL = 1000; // millisec
+	private final static long TIMER_DELAY = 1000; // millisec
+	private final static long TIMER_INTERVAL = 1000; // millisec
 
 	private LocationManager mLM;
-	private static final int GPS_UPDATE_INTERVAL = 1000; // millisec
-	private static final int GPS_UPDATE_DISTANCE = 2; // meter
+	private final static int GPS_UPDATE_INTERVAL = 1000; // millisec
+	private final static int GPS_UPDATE_DISTANCE = 2; // meter
 	private boolean mEmulateGps = false;
 	private Location mFakeLocation = new Location("gps");
 	
-	private final static int LOG_SIZE = 120; // 1 minute
+	private final static int LOG_SIZE = 120; // 1 minute X 2 sim
 	private Info[] mLogBuff = new Info[LOG_SIZE];
 	private int mLogFill = 0;
-	private static final String mLoggerUrl = "http://www.kadastr-ekz.ru/plugins/gsmlogger/logging.php";
+	private final static String mLoggerUrl = "http://www.kadastr-ekz.ru/plugins/gsmlogger/logging.php";
+	private final static Boolean mUseRemoteLogger = false;
 
 	private BroadcastReceiver mBR = new BroadcastReceiver() {
 
@@ -73,9 +75,9 @@ public class GSMservice extends Service {
 				mFakeLocation.setLatitude(55.70);
 				mFakeLocation.setLongitude(37.62);
 				mFakeLocation.setAccuracy(10);
-				setGpsInfo(mFakeLocation);
+				setGPSInfo(mFakeLocation);
 			}else{
-				setGpsInfo(null);
+				setGPSInfo(null);
 			}
 			//Debug.log("emulate gps: " + mEmulateGps);
 		}
@@ -87,7 +89,7 @@ public class GSMservice extends Service {
 		@Override
 		public void onLocationChanged(Location location) {
 			synchronized(mInfoLock){
-				setGpsInfo(location);
+				setGPSInfo(location);
 			}
 		}
 
@@ -97,7 +99,7 @@ public class GSMservice extends Service {
 		@Override
 		public void onProviderDisabled(String provider) {
 			synchronized(mInfoLock){
-				setGpsInfo(null);
+				setGPSInfo(null);
 			}
 		}
 
@@ -207,7 +209,7 @@ public class GSMservice extends Service {
 		return progress;
 	}
 
-	private void setGpsInfo(Location location) {
+	private void setGPSInfo(Location location) {
 		for(int i = 0; i < SIM_CNT; i++){
 			if(location == null)
 				mCurrInfo[i].resetGps();
@@ -216,7 +218,7 @@ public class GSMservice extends Service {
 		}
 	}
 
-	private void setGsmInfo() {
+	private void setGSMInfo() {
 		long time = System.currentTimeMillis();
 
 		for(int i = 0; i < SIM_CNT; i++){
@@ -244,10 +246,11 @@ public class GSMservice extends Service {
 
 			info.setTime(time);
 		}
+		
 		if(mEmulateGps){
 			mFakeLocation.setLatitude(mFakeLocation.getLatitude() + 0.001);
 			mFakeLocation.setLongitude(mFakeLocation.getLongitude() + 0.001);
-			setGpsInfo(mFakeLocation);
+			setGPSInfo(mFakeLocation);
 		}
 	}
 
@@ -287,12 +290,11 @@ public class GSMservice extends Service {
 	}
 
 	private void saveLog() {
-		if(! isGpsReady())
-			return;
-
 		for(int i = 0; i < SIM_CNT; i++){
-			if(mLogFill >= LOG_SIZE)
+			if(mLogFill >= LOG_SIZE){
 				addToStorage();
+				mLogFill = 0;
+			}
 			mLogBuff[mLogFill] = mLastInfo[i];
 			mLogFill++;
 		}
@@ -310,16 +312,15 @@ public class GSMservice extends Service {
 	}
 
 	private void addToStorage() {
-		if(! mEmulateGps){
-			try{
-				saveLocalFile();
-			}catch(Exception e){
-				Debug.log(Debug.stack(e));
-			}
-			sendToRemoteServer();
-		}
+		if(! isGpsReady())
+			return;
 
-		mLogFill = 0;
+		try{
+			saveLocalFile();
+		}catch(Exception e){
+			Debug.log(Debug.stack(e));
+		}
+		sendToRemoteServer();
 	}
 	
 	private void saveLocalFile() throws IOException {
@@ -347,6 +348,9 @@ public class GSMservice extends Service {
 	}
 	
 	private void sendToRemoteServer() {
+		if(! mUseRemoteLogger)
+			return;
+		
 		if(isInternet(getApplicationContext())){
 			JSONArray jsonArr = new JSONArray();
 			try{
@@ -356,7 +360,7 @@ public class GSMservice extends Service {
 						jsonArr.put(info.toJson());
 					}
 				}
-				//new loggerWebService().execute(new String[] {mLoggerUrl, jsonArr.toString()});
+				new loggerWebService().execute(new String[] {mLoggerUrl, jsonArr.toString()});
 			}catch(Exception e){
 				Debug.log(Debug.stack(e));
 			}
@@ -382,8 +386,7 @@ public class GSMservice extends Service {
 		String sep = ",";
 		String eol = "\n";
 
-		sb
-			.append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(new Date(info.getTime()))).append(sep)
+		  sb.append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(new Date(info.getTime()))).append(sep)
 			.append(String.valueOf(info.getTime())).append(sep)
 			.append(String.valueOf(info.getLat())).append(sep)
 			.append(String.valueOf(info.getLon())).append(sep)
@@ -396,21 +399,33 @@ public class GSMservice extends Service {
 			.append(String.valueOf(info.getProgress())).append(sep)
 			.append(String.valueOf(info.getCID())).append(sep)
 			.append(String.valueOf(info.getLAC()));
+		
 		if(info.getDatastate() == TelephonyManager.DATA_CONNECTED){
-			sb
-				.append(sep)
+			  sb.append(sep)
 				.append(String.valueOf(info.getDatastate())).append(sep)
 				.append(String.valueOf(info.getSpeedRX())).append(sep)
 				.append(String.valueOf(info.getSpeedTX()));
 		}
+		
 		sb.append(eol);
 
 		return sb.toString();
 	}
 	
+	public class TrackInfo implements Serializable {
+		private static final long serialVersionUID = 1L;
+		
+		public int mCurrPosition;
+		public Info[] mTrackInfo;
+	}
+	
+	private TrackInfo mSendTrack = new TrackInfo();
+	
 	private void showInfo() {
 		Intent intent = new Intent(getString(R.string.gsmserviceserver));
-		intent.putExtra(getString(R.string.gsmservice_info), mLastInfo);
+		mSendTrack.mCurrPosition = mLogFill;
+		mSendTrack.mTrackInfo = mLogBuff;
+		intent.putExtra(getString(R.string.gsmservice_info), mSendTrack);
 		LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
 		Debug.log("send");
 	}
@@ -454,11 +469,11 @@ public class GSMservice extends Service {
 							@Override
 							public void run() {
 								synchronized(mInfoLock) {
-									setGsmInfo();
+									setGSMInfo();
 									swapInfo();
 								}
-								showInfo();
 								saveLog();
+								showInfo();
 							}
 						});
 				}
@@ -482,11 +497,13 @@ public class GSMservice extends Service {
         }catch(Exception e){
         	Debug.log("create " + Debug.stack(e));
         }
+        Debug.log("service create");
 	}
 
 	@Override
 	public void onDestroy() {
 		stopListening();
+		Debug.log("service destroy");
 		super.onDestroy();
 	}
 

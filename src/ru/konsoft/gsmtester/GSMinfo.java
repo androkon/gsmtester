@@ -1,24 +1,41 @@
 package ru.konsoft.gsmtester;
 
-import android.app.*;
-import android.content.*;
-import android.content.res.*;
-import android.graphics.*;
-import android.graphics.Paint.Style;
-import android.graphics.drawable.*;
-import android.graphics.drawable.shapes.*;
-import android.os.*;
-import android.support.v4.content.*;
-import android.telephony.*;
-import android.view.*;
-import android.widget.*;
-import ru.yandex.yandexmapkit.*;
-import ru.yandex.yandexmapkit.overlay.*;
-import ru.yandex.yandexmapkit.utils.*;
+import ru.konsoft.gsmtester.GSMservice.TrackInfo;
+import ru.yandex.yandexmapkit.MapController;
+import ru.yandex.yandexmapkit.MapView;
+import ru.yandex.yandexmapkit.OverlayManager;
+import ru.yandex.yandexmapkit.overlay.Overlay;
+import ru.yandex.yandexmapkit.overlay.OverlayItem;
+import ru.yandex.yandexmapkit.utils.GeoPoint;
+import android.app.Activity;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Rect;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.ShapeDrawable;
+import android.graphics.drawable.shapes.OvalShape;
+import android.os.Bundle;
+import android.support.v4.content.LocalBroadcastManager;
+import android.telephony.TelephonyManager;
+import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+import android.widget.ToggleButton;
+import android.widget.ViewFlipper;
 
 public class GSMinfo extends Activity {
 
-	private Info[] mLastInfo;
+	private TrackInfo mTrackInfo;
 	
     private ViewFlipper flipper = null;
 	
@@ -26,15 +43,18 @@ public class GSMinfo extends Activity {
 	private MapController mMapController;
 	private OverlayManager mOverlayManager;
     private Overlay mOverlay;
+	private final static int COLOR_START = Color.parseColor("#FF0303");
+	private final static int COLOR_END   = Color.parseColor("#0CFF03");
 
 	private BroadcastReceiver mBR = new BroadcastReceiver() {
 
 		@Override
 		public void onReceive(Context context, Intent intent) {
 			Debug.log("receive");
-			mLastInfo = (Info[])intent.getSerializableExtra(getString(R.string.gsmservice_info));
-			displayGsmInfo(mLastInfo);
-			displayGpsInfo(mLastInfo);
+			mTrackInfo = (TrackInfo)intent.getSerializableExtra(getString(R.string.gsmservice_info));
+			mTrackInfo.mCurrPosition -= GSMservice.getSIM_CNT();
+			displayGsmInfo(mTrackInfo);
+			displayGpsInfo(mTrackInfo);
 		}
 		
 	};
@@ -78,9 +98,9 @@ public class GSMinfo extends Activity {
 		return sb.toString();
 	}
 	
-	private void displayGsmInfo(Info[] gsmInfo) {
+	private void displayGsmInfo(TrackInfo trackInfo) {
 		for(int i = 0; i < GSMservice.getSIM_CNT(); i++){
-			Info info = gsmInfo[i];
+			Info info = trackInfo.mTrackInfo[trackInfo.mCurrPosition + i];
 			int signalLevel, deviceInfo, simNameId;
 			String simName;
 			
@@ -105,8 +125,8 @@ public class GSMinfo extends Activity {
 		}
 	}
 	
-	private void displayGpsInfo(Info[] infoList) {
-		Info info = infoList[0];
+	private void displayGpsInfo(TrackInfo trackInfo) {
+		Info info = trackInfo.mTrackInfo[trackInfo.mCurrPosition];
 		
 		if(info.getLat() != 0.0 && info.getLon() != 0.0){
 			StringBuilder sb = new StringBuilder();
@@ -118,30 +138,28 @@ public class GSMinfo extends Activity {
 				.append("vel: ").append(String.valueOf(info.getSpeed())).append(" m/s");
 			setTextViewText(R.id.gps_info, sb.toString());
 			
-	        //mOverlay.clearOverlayItems();
-			//for(int i = 0; i < infoList.length; i++)
-			showPoint(info);
 		}else{
 			setTextViewText(R.id.gps_info, "No GPS");
 		}
+
+        mOverlay.clearOverlayItems();
+		for(int i = 0; i < trackInfo.mCurrPosition + GSMservice.getSIM_CNT(); i++)
+			if(trackInfo.mTrackInfo[i].getSlot() == 1)
+				showPoint(trackInfo.mTrackInfo[i]);
+		
+		mMapController.notifyRepaint();
 	}
 
     private void showPoint(Info info){
-        OverlayItem y;
-		GeoPoint geoPoint = new GeoPoint(info.getLat(), info.getLon());
-		
 		ShapeDrawable point = new ShapeDrawable(new OvalShape());
-		Paint paint = point.getPaint();
-		int ca = Color.parseColor("#BD4141");
-		int cb = Color.parseColor("#719D98");
-		paint.setColor(interpolateColor(ca, cb, info.getProgress() / 100f));
-		
+
+		point.getPaint().setColor(interpolateColor(COLOR_START, COLOR_END, info.getProgress() / 100f));
+
 		point.setBounds(0, 0, 20, 20);
 
-		y = new OverlayItem(geoPoint, drawableToBitmapDrawable(getResources(), point));
+		GeoPoint geoPoint = new GeoPoint(info.getLat(), info.getLon());
+		OverlayItem y = new OverlayItem(geoPoint, drawableToBitmapDrawable(getResources(), point));
 		mOverlay.addOverlayItem(y);
-		
-		mMapController.setPositionAnimationTo(geoPoint);
     }
 	
 	private static int interpolateColor(int a, int b, float p) {
@@ -236,36 +254,35 @@ public class GSMinfo extends Activity {
 	
 	@Override
 	protected void onStart() {
-		super.onStart();
-		//regReceiver();
 		Debug.log("start");
+		super.onStart();
 	}
 
 	@Override
 	protected void onStop() {
-		super.onStop();
 		Debug.log("stop");
+		super.onStop();
 	}
 	
 	@Override
 	protected void onPause() {
 		unregReceiver();
-		super.onPause();
 		Debug.log("pause");
+		super.onPause();
 	}
 
 	@Override
 	protected void onResume() {
 		regReceiver();
-		super.onResume();
 		Debug.log("resume");
+		super.onResume();
 	}
 	
 	@Override
 	protected void onDestroy() {
 		stopGSMservice();
-		super.onDestroy();
 		Debug.log("destroy");
+		super.onDestroy();
 	}
 	
 	@Override
