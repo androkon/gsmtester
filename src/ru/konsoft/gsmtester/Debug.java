@@ -1,6 +1,8 @@
 package ru.konsoft.gsmtester;
 
-import android.util.Log;
+import android.util.*;
+import java.text.*;
+import java.util.*;
 
 public class Debug {
 	
@@ -22,7 +24,13 @@ public class Debug {
 	}
 	
 	public static void log(String msg) {
-		Log.e(LOG_TAG, msg);
+		StringBuilder sb = new StringBuilder();
+		sb
+			.append(LOG_TAG)
+			.append(": ")
+			.append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(new Date(System.currentTimeMillis())));
+		
+		Log.e(sb.toString(), msg);
 	}
 
 }

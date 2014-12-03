@@ -1,47 +1,23 @@
 package ru.konsoft.gsmtester;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Serializable;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.zip.GZIPOutputStream;
-
-import org.json.JSONArray;
-
-import android.app.Service;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.location.Criteria;
-import android.location.Location;
-import android.location.LocationListener;
-import android.location.LocationManager;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
-import android.net.TrafficStats;
-import android.os.AsyncTask;
-import android.os.Bundle;
-import android.os.Handler;
-import android.os.IBinder;
-import android.support.v4.content.LocalBroadcastManager;
-import android.telephony.PhoneStateListener;
-import android.telephony.SignalStrength;
-import android.telephony.TelephonyManager;
-import android.telephony.gsm.GsmCellLocation;
+import android.app.*;
+import android.content.*;
+import android.hardware.*;
+import android.location.*;
+import android.net.*;
+import android.os.*;
+import android.support.v4.content.*;
+import android.telephony.*;
+import android.telephony.gsm.*;
+import java.io.*;
+import java.net.*;
+import java.text.*;
+import java.util.*;
+import java.util.zip.*;
+import org.json.*;
 
 public class GSMservice extends Service {
-	
+
 	private DuoTelephonyManager mDuoTM;
 
 	private final static int SIM_CNT = 2;
@@ -60,8 +36,8 @@ public class GSMservice extends Service {
 	private boolean mEmulateGps = false;
 	private Location mFakeLocation = new Location("gps");
 	
-	private final static int LOG_SIZE = 120; // 1 minute X 2 sim
-	private Info[] mLogBuff = new Info[LOG_SIZE];
+	private final static int LOG_SIZE = 1200; // 1 minute X 2 sim
+	private Info[][] mLogBuff = new Info[LOG_SIZE][SIM_CNT];
 	private int mLogFill = 0;
 	private final static String mLoggerUrl = "http://www.kadastr-ekz.ru/plugins/gsmlogger/logging.php";
 	private final static Boolean mUseRemoteLogger = false;
@@ -71,12 +47,7 @@ public class GSMservice extends Service {
 		@Override
 		public void onReceive(Context context, Intent intent) {
 			mEmulateGps = intent.getBooleanExtra(getString(R.string.gsmservice_emulate_gps), false);
-			if(mEmulateGps){
-				mFakeLocation.setLatitude(55.70);
-				mFakeLocation.setLongitude(37.62);
-				mFakeLocation.setAccuracy(10);
-				setGPSInfo(mFakeLocation);
-			}else{
+			if(! mEmulateGps){
 				setGPSInfo(null);
 			}
 			//Debug.log("emulate gps: " + mEmulateGps);
@@ -248,11 +219,19 @@ public class GSMservice extends Service {
 		}
 		
 		if(mEmulateGps){
-			mFakeLocation.setLatitude(mFakeLocation.getLatitude() + 0.001);
-			mFakeLocation.setLongitude(mFakeLocation.getLongitude() + 0.001);
+			//double r = g / 180f * Math.PI;
+			//mFakeLocation.setLatitude(mFakeLocation.getLatitude() + 0.001);// * Math.sin(r));
+			mFakeLocation.setLongitude(mFakeLocation.getLongitude() + 0.0001);// * Math.cos(r));
 			setGPSInfo(mFakeLocation);
+			//g++;
+			//if(g == 360)
+			//	g = 0;
 		}
+		
+		swapInfo();
 	}
+	
+	private int g = 0;
 
 	private void swapInfo() {
 		for(int i = 0; i < SIM_CNT; i++){
@@ -290,14 +269,20 @@ public class GSMservice extends Service {
 	}
 
 	private void saveLog() {
-		for(int i = 0; i < SIM_CNT; i++){
-			if(mLogFill >= LOG_SIZE){
-				addToStorage();
-				mLogFill = 0;
-			}
-			mLogBuff[mLogFill] = mLastInfo[i];
-			mLogFill++;
+		if(! isGpsReady())
+			return;
+			
+		if(mLogFill >= LOG_SIZE){
+			addToStorage();
+			mLogFill = 0;
 		}
+		
+		for(int i = 0; i < SIM_CNT; i++)
+			mLogBuff[mLogFill][i] = mLastInfo[i];
+		
+		mLogFill++;
+		
+		showInfo();
 	}
 
 	private boolean isGpsReady() {
@@ -312,8 +297,8 @@ public class GSMservice extends Service {
 	}
 
 	private void addToStorage() {
-		if(! isGpsReady())
-			return;
+		//if(! isGpsReady())
+		//	return;
 
 		try{
 			saveLocalFile();
@@ -333,9 +318,10 @@ public class GSMservice extends Service {
 			file = new FileWriter(new File(dir, fname), true);
 
 			for(int i = 0; i < LOG_SIZE; i++){
-				Info info = mLogBuff[i];
-				if(info.getOpercode() != 0){
-					file.write(getLog(info));
+				for(int j = 0; j < SIM_CNT; j++){
+					Info info = mLogBuff[i][j];
+					if(info.getOpercode() != 0)
+						file.write(getLog(info));
 				}
 			}
 			file.flush();
@@ -355,9 +341,11 @@ public class GSMservice extends Service {
 			JSONArray jsonArr = new JSONArray();
 			try{
 				for(int i = 0; i < LOG_SIZE; i++){
-					Info info = mLogBuff[i];
-					if(info.getOpercode() != 0){
-						jsonArr.put(info.toJson());
+					for(int j = 0; j < SIM_CNT; j++){
+						Info info = mLogBuff[i][j];
+						if(info.getOpercode() != 0){
+							jsonArr.put(info.toJson());
+						}
 					}
 				}
 				new loggerWebService().execute(new String[] {mLoggerUrl, jsonArr.toString()});
@@ -416,21 +404,24 @@ public class GSMservice extends Service {
 		private static final long serialVersionUID = 1L;
 		
 		public int mCurrPosition;
-		public Info[] mTrackInfo;
+		public Info[][] mTrackInfo;
 	}
 	
 	private TrackInfo mSendTrack = new TrackInfo();
 	
 	private void showInfo() {
+		//Debug.log("collect");
 		Intent intent = new Intent(getString(R.string.gsmserviceserver));
 		mSendTrack.mCurrPosition = mLogFill;
 		mSendTrack.mTrackInfo = mLogBuff;
 		intent.putExtra(getString(R.string.gsmservice_info), mSendTrack);
 		LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
-		Debug.log("send");
+		//Debug.log("send");
 	}
 
 	private void stopListening() {
+		//mSM.unregisterListener(mSL);
+		
 		mDuoTM.listen(mPhoneStateListener0, PhoneStateListener.LISTEN_NONE, 0);
 		mDuoTM.listen(mPhoneStateListener1, PhoneStateListener.LISTEN_NONE, 1);
 
@@ -438,9 +429,100 @@ public class GSMservice extends Service {
 
 		mTimer.cancel();
 	}
+	
+	//private Sensor mAccel;
+	public class Accel {
+		public long time = 0;
+		public float x = 0, y = 0, z = 0;
+		public float[] avgG = new float[3];
+		public float[] currG = new float[3];
+		public float[] V = new float[3], L = new float[3];
+		public void Accel() {
+			avgG[0] = avgG[1] = avgG[2] = 0;
+			V[0] = V[1] = V[2] = 0;
+		}
+	}
+	/*private Accel mPrevAcc = new Accel();
+	private static float gravity = 9.81f;
+	private static float alpha = 0.8f;
+	private boolean isFirst = true;*/
+	/*private SensorEventListener mSL = new SensorEventListener() {
+
+		@Override
+		public void onAccuracyChanged(Sensor sensor, int accuracy) {
+			Debug.log(sensor.getName() + " : accuracy : " + accuracy);
+		}
+
+		@Override
+		public void onSensorChanged(SensorEvent event) {
+			SensorEvent e = event;
+			//Debug.log("x : " + e.values[0] + " y : " + e.values[1] + " z : " + e.values[2]);
+			Accel acc = new Accel();
+			acc.x = e.values[0];
+			acc.y = e.values[1];
+			acc.z = e.values[2];
+			//acc.time = System.currentTimeMillis();
+			acc.time = e.timestamp;
+			
+			mPrevAcc.avgG[0] = alpha * mPrevAcc.avgG[0] + (1 - alpha) * acc.x;
+			mPrevAcc.currG[0] = acc.x - mPrevAcc.avgG[0];
+			
+			double dT;
+			double dA, dV, dL;
+			double dVx = 0, Ax = 0, dLx = 0;
+			dA = Math.sqrt(Math.pow(acc.x - mPrevAcc.x, 2) + Math.pow(acc.y - mPrevAcc.y, 2) + Math.pow(acc.z - mPrevAcc.z, 2));
+			dT = (acc.time - mPrevAcc.time) / 1000000000f;
+			dV = dA * dT * 100f;
+			dL = dV * dT;
+			
+			if(! isFirst){
+				Ax = mPrevAcc.currG[0];
+				//if(Math.abs(Ax) > 0.1f){
+					dVx = Ax * dT;
+					dLx = dVx * dT;
+					mPrevAcc.V[0] += dVx;
+					mPrevAcc.L[0] += dLx;
+				//}
+			}
+			
+			double xR, yR, zR;
+			//xR = Math.acos(acc.x / gravity) / Math.PI * 180;
+			xR = Math.acos(mPrevAcc.avgG[0] / gravity) / Math.PI * 180;
+			
+			//if(dL > 1f){
+				//Debug.log(" dv : " + dV + " dl : " + dL);
+				//Debug.log("x : " + acc.x + " y : " + acc.y + " z : " + acc.z);
+				//Debug.log("x : " + acc.x + " xR : " + xR);
+				//Debug.log("avgX : " + mPrevAcc.avgG[0] + " currX : " + mPrevAcc.currG[0]);
+				Debug.log("Vx : " + mPrevAcc.V[0] + " Ax : " + Ax);
+			//}
+			
+			mPrevAcc.x = acc.x;
+			mPrevAcc.y = acc.y;
+			mPrevAcc.z = acc.z;
+			mPrevAcc.time = acc.time;
+			isFirst = false;
+		}
+		
+	};*/
+	
+	//private SensorManager mSM;
 
 	private void startAllListeners() {
+		mFakeLocation.setLatitude(55.70);
+		mFakeLocation.setLongitude(37.62);
+		mFakeLocation.setAccuracy(10);
+		
 		initDuo();
+		
+		//mSM = (SensorManager) getSystemService(SENSOR_SERVICE);
+		//List<Sensor> sl = mSM.getSensorList(Sensor.TYPE_ALL);
+		//for(Iterator<Sensor> si = sl.iterator(); si.hasNext();){
+		//	Sensor s = si.next();
+		//	//Debug.log(s.getName());
+		//}
+		///mAccel = mSM.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+		//mSM.registerListener(mSL, mAccel, SensorManager.SENSOR_DELAY_FASTEST);
 		
 		// get GSM mobile network settings
 		mDuoTM = new DuoTelephonyManager((TelephonyManager) getSystemService(TELEPHONY_SERVICE));
@@ -452,6 +534,11 @@ public class GSMservice extends Service {
 		mDuoTM.listen(mPhoneStateListener0, events, 0);
 		mDuoTM.listen(mPhoneStateListener1, events, 1);
 
+		// GPS on
+		//Intent i = new Intent("android.location.GPS_ENABLE_CHANGE");
+		//i.putExtra("enabled", true);
+		//sendBroadcast(i);
+		//Settings.Secure.putString(this.getContentResolver(), Settings.Secure.LOCATION_PROVIDERS_ALLOWED, LocationManager.GPS_PROVIDER);
 		// get GPS coordinates
 		mLM = (LocationManager) getSystemService(LOCATION_SERVICE);
 		Criteria criteria = new Criteria();
@@ -470,10 +557,8 @@ public class GSMservice extends Service {
 							public void run() {
 								synchronized(mInfoLock) {
 									setGSMInfo();
-									swapInfo();
 								}
 								saveLog();
-								showInfo();
 							}
 						});
 				}
