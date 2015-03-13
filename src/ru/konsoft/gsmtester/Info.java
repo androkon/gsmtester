@@ -29,7 +29,7 @@ public class Info implements Serializable {
 	private int mLAC;
 	private int mCID;
 
-	private int mDatastate;
+	private int mDataState;
 	private long mRX; // no log
 	private long mTX; // no log
 	private int mSpeedRX;
@@ -75,8 +75,20 @@ public class Info implements Serializable {
 		return mCID;
 	}
 
-	public int getDatastate() {
-		return mDatastate;
+	public int getDataState() {
+		return mDataState;
+	}
+	
+	public String getDataStateTxt() {
+		int state = getDataState();
+		String ret;
+		switch(state) {
+			case 0: ret = "not connected"; break;
+			case 1: ret = "connecting..."; break;
+			case 2: ret = "connected"; break;
+			default: ret = "unknown"; break;
+		}
+		return ret;
 	}
 
 	public long getRX() {
@@ -147,8 +159,8 @@ public class Info implements Serializable {
 		this.mCID = cid;
 	}
 
-	public void setDatastate(int datastate) {
-		this.mDatastate = datastate;
+	public void setDataState(int datastate) {
+		this.mDataState = datastate;
 	}
 
 	public void setRX(long rx) {
@@ -191,7 +203,7 @@ public class Info implements Serializable {
 		mLAC = 0;
 		mLevel = 0;
 		mProgress = 0;
-		mDatastate = 0;
+		mDataState = 0;
 	}
 
 	public void resetGps() {
@@ -228,9 +240,9 @@ public class Info implements Serializable {
 			.put("longitude", mLon)
 			.put("gpsAccuracy", mAcc)
 			.put("gpsSpeed", mSpeed);
-		if(getDatastate() == TelephonyManager.DATA_CONNECTED){
+		if(getDataState() == TelephonyManager.DATA_CONNECTED){
 			jsonObj
-				.put("datastate", mDatastate)
+				.put("datastate", mDataState)
 				.put("speedRX", mSpeedRX)
 				.put("speedTX", mSpeedTX);
 		}

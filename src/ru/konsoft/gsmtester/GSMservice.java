@@ -36,7 +36,7 @@ public class GSMservice extends Service {
 	private boolean mEmulateGps = false;
 	private Location mFakeLocation = new Location("gps");
 	
-	private final static int LOG_SIZE = 1200; // 1 minute X 2 sim
+	public final static int LOG_SIZE = 10 * 60; // 10 min
 	private Info[][] mLogBuff = new Info[LOG_SIZE][SIM_CNT];
 	private int mLogFill = 0;
 	private final static String mLoggerUrl = "http://www.kadastr-ekz.ru/plugins/gsmlogger/logging.php";
@@ -206,7 +206,7 @@ public class GSMservice extends Service {
 					GsmCellLocation cl = (GsmCellLocation) mDuoTM.getCellLocation(i);
 					info.setCID(cl.getCid());
 					info.setLAC(cl.getLac());
-					info.setDatastate(mDuoTM.getDataState(i));
+					info.setDataState(mDuoTM.getDataState(i));
 				}
 			}catch(Exception e){
 				Debug.log("error sim " + i + " " + Debug.stack(e));
@@ -219,13 +219,13 @@ public class GSMservice extends Service {
 		}
 		
 		if(mEmulateGps){
-			//double r = g / 180f * Math.PI;
-			//mFakeLocation.setLatitude(mFakeLocation.getLatitude() + 0.001);// * Math.sin(r));
-			mFakeLocation.setLongitude(mFakeLocation.getLongitude() + 0.0001);// * Math.cos(r));
+			double r = g / 180f * Math.PI;
+			mFakeLocation.setLatitude(mFakeLocation.getLatitude() + 0.001 * Math.sin(r));
+			mFakeLocation.setLongitude(mFakeLocation.getLongitude() + 0.001 * Math.cos(r));
 			setGPSInfo(mFakeLocation);
-			//g++;
-			//if(g == 360)
-			//	g = 0;
+			g++;
+			if(g == 360)
+				g = 0;
 		}
 		
 		swapInfo();
@@ -249,7 +249,7 @@ public class GSMservice extends Service {
 			last.setProgress(curr.getProgress());
 			last.setCID(curr.getCID());
 			last.setLAC(curr.getLAC());
-			last.setDatastate(curr.getDatastate());
+			last.setDataState(curr.getDataState());
 
 			last.setSpeedRX((int)((curr.getRX() - prev.getRX()) * 1000.0 / (curr.getTime() - prev.getTime())));
 			last.setSpeedTX((int)((curr.getTX() - prev.getTX()) * 1000.0 / (curr.getTime() - prev.getTime())));
@@ -280,9 +280,12 @@ public class GSMservice extends Service {
 		for(int i = 0; i < SIM_CNT; i++)
 			mLogBuff[mLogFill][i] = mLastInfo[i];
 		
-		mLogFill++;
+		//Debug.log("c: " + mLogFill);
+		//mLogFill++;
 		
 		showInfo();
+		
+		mLogFill++;
 	}
 
 	private boolean isGpsReady() {
@@ -388,9 +391,9 @@ public class GSMservice extends Service {
 			.append(String.valueOf(info.getCID())).append(sep)
 			.append(String.valueOf(info.getLAC()));
 		
-		if(info.getDatastate() == TelephonyManager.DATA_CONNECTED){
+		if(info.getDataState() == TelephonyManager.DATA_CONNECTED){
 			  sb.append(sep)
-				.append(String.valueOf(info.getDatastate())).append(sep)
+				.append(String.valueOf(info.getDataState())).append(sep)
 				.append(String.valueOf(info.getSpeedRX())).append(sep)
 				.append(String.valueOf(info.getSpeedTX()));
 		}
@@ -404,7 +407,7 @@ public class GSMservice extends Service {
 		private static final long serialVersionUID = 1L;
 		
 		public int mCurrPosition;
-		public Info[][] mTrackInfo;
+		public Info[][] mInfo;
 	}
 	
 	private TrackInfo mSendTrack = new TrackInfo();
@@ -413,7 +416,7 @@ public class GSMservice extends Service {
 		//Debug.log("collect");
 		Intent intent = new Intent(getString(R.string.gsmserviceserver));
 		mSendTrack.mCurrPosition = mLogFill;
-		mSendTrack.mTrackInfo = mLogBuff;
+		mSendTrack.mInfo = mLogBuff;
 		intent.putExtra(getString(R.string.gsmservice_info), mSendTrack);
 		LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
 		//Debug.log("send");

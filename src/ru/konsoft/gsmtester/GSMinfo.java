@@ -23,17 +23,17 @@ public class GSMinfo extends Activity {
 	private TrackInfo mTrackInfo;
 	
     private ViewFlipper flipper = null;
-	private boolean isVisible = false;
+	private boolean mIsVisible = false;
 	
 	private MapView mMapView;
 	private MapController mMapController;
 	private OverlayManager mOverlayManager;
     private Overlay[] mOverlays = new Overlay[VIEW_CNT];
 	private final static int VIEW_LEVEL = 0;
-	private final static int VIEW_TYPE = 1;
-	private final static int VIEW_SPEEDRX = 2;
-	private final static int VIEW_SPEEDTX = 3;
-	private final static int VIEW_CNT = 4;
+	//private final static int VIEW_TYPE = 1;
+	//private final static int VIEW_SPEEDRX = 2;
+	//private final static int VIEW_SPEEDTX = 3;
+	private final static int VIEW_CNT = 1;
 	private final static int COLOR_START = Color.parseColor("#FF0303");
 	private final static int COLOR_END   = Color.parseColor("#0CFF03");
 
@@ -45,6 +45,7 @@ public class GSMinfo extends Activity {
 			mTrackInfo = (TrackInfo)intent.getSerializableExtra(getString(R.string.gsmservice_info));
 			displayGsmInfo(mTrackInfo);
 			displayGpsInfo(mTrackInfo);
+			//Debug.log("recv: " + mTrackInfo.mInfo[0][0].toString());
 		}
 		
 	};
@@ -74,10 +75,10 @@ public class GSMinfo extends Activity {
 				.append("Slot: ").append(String.valueOf(info.getSlot())).append(sep)
 				.append("LAC: ").append(String.valueOf(info.getLAC())).append(sep)
 				.append("CID: ").append(String.valueOf(info.getCID()));
-			//if(info.getDatastate() == TelephonyManager.DATA_CONNECTED){
+			//if(info.getDataState() == TelephonyManager.DATA_CONNECTED){
 				sb
 					.append(sep)
-					.append("DataState: ").append(String.valueOf(info.getDatastate())).append(sep)
+					.append("DataState: ").append(info.getDataStateTxt()).append(sep)
 					.append("Speed RX: ").append(String.valueOf(info.getSpeedRX())).append(" bytes/sec").append(sep)
 					.append("Speed TX: ").append(String.valueOf(info.getSpeedTX())).append(" bytes/sec").append(sep)
 					.append("RX: ").append(String.valueOf(info.getRX())).append(" bytes").append(sep)
@@ -89,10 +90,10 @@ public class GSMinfo extends Activity {
 	}
 	
 	private void displayGsmInfo(TrackInfo trackInfo) {
-		if(! isVisible)
+		if(! mIsVisible)
 			return;
 			
-		Info[] simInfo = trackInfo.mTrackInfo[mTrackInfo.mCurrPosition - 1];
+		Info[] simInfo = trackInfo.mInfo[trackInfo.mCurrPosition];
 		for(int i = 0; i < GSMservice.getSIM_CNT(); i++){
 			Info info = simInfo[i];
 			int signalLevel, deviceInfo, simNameId;
@@ -120,45 +121,43 @@ public class GSMinfo extends Activity {
 	}
 	
 	private void displayGpsInfo(TrackInfo trackInfo) {
-		if(! isVisible)
-			return;
-			
-		Info[] simInfo = trackInfo.mTrackInfo[trackInfo.mCurrPosition - 1];
+		Info[] simInfo = trackInfo.mInfo[trackInfo.mCurrPosition];
 		Info info = simInfo[0];
 		
-		if(info.getLat() != 0.0 && info.getLon() != 0.0){
-			StringBuilder sb = new StringBuilder();
+		if(mIsVisible){
+			if(info.getLat() != 0.0 && info.getLon() != 0.0){
+				StringBuilder sb = new StringBuilder();
 			
-			sb
-				.append("lat: ").append(String.valueOf(info.getLat())).append("\n")
-				.append("lon: ").append(String.valueOf(info.getLon())).append("\n")
-				.append("acc: ").append(String.valueOf(info.getAcc())).append(" m\n")
-				.append("vel: ").append(String.valueOf(info.getSpeed())).append(" m/s");
-			setTextViewText(R.id.gps_info, sb.toString());
+				sb
+					.append("lat: ").append(String.valueOf(info.getLat())).append("\n")
+					.append("lon: ").append(String.valueOf(info.getLon())).append("\n")
+					.append("acc: ").append(String.valueOf(info.getAcc())).append(" m\n")
+					.append("vel: ").append(String.valueOf(info.getSpeed())).append(" m/s\n")
+					.append("vel: ").append(String.valueOf(info.getSpeed() * 3.6)).append(" km/h");
+				setTextViewText(R.id.gps_info, sb.toString());
 			
-		}else{
-			setTextViewText(R.id.gps_info, "No GPS");
+			}else{
+				setTextViewText(R.id.gps_info, "No GPS");
+			}
 		}
 		
 		//mOverlays[0].clearOverlayItems();
-			
-		Info prev = null;
-		for(int i = mInOverlay; i < trackInfo.mCurrPosition; i++){
-			prev = trackInfo.mTrackInfo[i - 1][0];
-			showPoint(trackInfo.mTrackInfo[i], prev);
-			mInOverlay++;
-		}
 		
-		mMapController.notifyRepaint();
+		Info prev = trackInfo.mInfo[(trackInfo.mCurrPosition + GSMservice.LOG_SIZE - 1) % GSMservice.LOG_SIZE][0];
+		showPoint(simInfo, prev);
+		
+		if(mOverlays[VIEW_LEVEL].getOverlayItems().size() == GSMservice.LOG_SIZE)
+			mOverlays[VIEW_LEVEL].removeOverlayItem((OverlayItem) mOverlays[VIEW_LEVEL].getOverlayItems().get(0));
+		
+		if(mIsVisible)
+			mMapController.notifyRepaint();
 	}
-	
-	private int mInOverlay = 1;
 
     private void showPoint(Info[] simInfo, Info prev){
 		ShapeDrawable[] point = new ShapeDrawable[GSMservice.getSIM_CNT()];
 		int x = 0, sz = 10;
 		Info info = null;
-		for(int i = 0; i < GSMservice.getSIM_CNT(); i ++){
+		for(int i = 0; i < GSMservice.getSIM_CNT(); i++){
 			info = simInfo[i];
 			if(i == 0)
 				point[i] = new ShapeDrawable(new OvalShape());
@@ -305,7 +304,7 @@ public class GSMinfo extends Activity {
 	@Override
 	protected void onPause() {
 		//unregReceiver();
-		isVisible = false;
+		mIsVisible = false;
 		//pauseAccel();
 		Debug.log("pause");
 		super.onPause();
@@ -314,7 +313,7 @@ public class GSMinfo extends Activity {
 	@Override
 	protected void onResume() {
 		//regReceiver();
-		isVisible = true;
+		mIsVisible = true;
 		//resumeAccel();
 		Debug.log("resume");
 		super.onResume();
